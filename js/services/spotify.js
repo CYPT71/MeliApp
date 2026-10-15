@@ -24,6 +24,19 @@ const spotifyHttpError = ({ status, path, data }) => {
   return error;
 };
 
+const spotifyWebUrl = (uri = null) => {
+  const match = String(uri ?? "").match(/^spotify:(track|playlist|album|artist):([A-Za-z0-9]+)$/);
+  if (!match) return "https://open.spotify.com/";
+  const [, type, id] = match;
+  return `https://open.spotify.com/${type}/${id}`;
+};
+
+const isPlaybackForbidden = (error) => Number(error?.status) === 403 && /\/me\/player/.test(String(error?.path ?? ""));
+
+const redirectToSpotify = (uri = null) => {
+  location.assign(spotifyWebUrl(uri));
+};
+
 export const createSpotifyService = ({ clientId }) => {
   const normalizedClientId = String(clientId ?? "").trim();
   const configured = Boolean(normalizedClientId);
@@ -134,23 +147,50 @@ export const createSpotifyService = ({ clientId }) => {
 
   const play = async (contextUri, deviceId = null) => {
     if (!contextUri) return;
-    await request(playerPath("/me/player/play", deviceId), {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ context_uri: contextUri })
-    });
+    try {
+      await request(playerPath("/me/player/play", deviceId), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ context_uri: contextUri })
+      });
+    } catch (error) {
+      if (isPlaybackForbidden(error)) {
+        redirectToSpotify(contextUri);
+        return;
+      }
+      throw error;
+    }
   };
 
   const playTrack = async (trackUri, deviceId = null) => {
     if (!trackUri) return;
-    await request(playerPath("/me/player/play", deviceId), {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ uris: [trackUri] })
-    });
+    try {
+      await request(playerPath("/me/player/play", deviceId), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ uris: [trackUri] })
+      });
+    } catch (error) {
+      if (isPlaybackForbidden(error)) {
+        redirectToSpotify(trackUri);
+        return;
+      }
+      throw error;
+    }
   };
 
-  const resume = async (deviceId = null) => request(playerPath("/me/player/play", deviceId), { method: "PUT" });
+  const resume = async (deviceId = null) => {
+    try {
+      return await request(playerPath("/me/player/play", deviceId), { method: "PUT" });
+    } catch (error) {
+      if (isPlaybackForbidden(error)) {
+        redirectToSpotify();
+        return null;
+      }
+      throw error;
+    }
+  };
+
   const pause = async (deviceId = null) => request(playerPath("/me/player/pause", deviceId), { method: "PUT" });
 
   const listDevices = async () => {
