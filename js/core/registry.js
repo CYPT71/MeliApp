@@ -1,13 +1,15 @@
 import { features as baseFeatures } from "../features.js";
 import { advancedFeatures } from "../features-advanced.js";
 import { featureOverrides } from "../features-overrides.js";
+import { energyFriendlyOverride } from "../features-energy-friendly.js";
 import { applyFeatureCategories, featureCategories } from "../feature-categories.js";
 
 export const features = Object.freeze(
   applyFeatureCategories({
     ...baseFeatures,
     ...advancedFeatures,
-    ...featureOverrides
+    ...featureOverrides,
+    ...energyFriendlyOverride
   }, featureCategories)
 );
 
