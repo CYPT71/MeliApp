@@ -1,0 +1,182 @@
+.task-workspace-tabs {
+  display: flex;
+  gap: .5rem;
+  overflow-x: auto;
+  padding: .1rem 0 .25rem;
+}
+
+.task-workspace-tabs button {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding-inline: 1rem;
+}
+
+.task-create-card {
+  padding: 1rem;
+  border: 1px solid rgba(255,255,255,.1);
+  background: rgba(255,255,255,.045);
+  border-radius: 1rem;
+}
+
+.importance-picker {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: .4rem;
+}
+
+.importance-choice {
+  position: relative;
+  min-height: 52px;
+  display: grid;
+  place-items: center;
+  gap: .15rem;
+  border: 1px solid rgba(255,255,255,.09);
+  border-radius: .85rem;
+  background: rgba(255,255,255,.035);
+  cursor: pointer;
+  transition: transform .14s ease, background .14s ease, border-color .14s ease;
+}
+
+.importance-choice:hover,
+.importance-choice:focus-within,
+.importance-choice.is-selected,
+.importance-choice:has(input:checked) {
+  transform: translateY(-2px);
+  background: rgba(255,255,255,.1);
+  border-color: rgba(255,255,255,.24);
+}
+
+.importance-choice input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.importance-choice__dot {
+  font-size: 1.1rem;
+}
+
+.importance-choice:nth-child(1) .importance-choice__dot { opacity: .28; }
+.importance-choice:nth-child(2) .importance-choice__dot { opacity: .42; }
+.importance-choice:nth-child(3) .importance-choice__dot { opacity: .62; }
+.importance-choice:nth-child(4) .importance-choice__dot { opacity: .82; }
+.importance-choice:nth-child(5) .importance-choice__dot { opacity: 1; }
+.importance-choice__label { font-size: .75rem; opacity: .75; }
+
+.eisenhower-board {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .7rem;
+}
+
+.eisenhower-cell {
+  min-height: 145px;
+  display: grid;
+  align-content: start;
+  gap: .55rem;
+  padding: .9rem;
+  border-radius: 1rem;
+  border: 2px solid rgba(255,255,255,.12);
+  background: rgba(0,0,0,.12);
+}
+
+.eisenhower--do { border-color: rgba(224, 80, 69, .65); }
+.eisenhower--plan { border-color: rgba(73, 184, 123, .65); }
+.eisenhower--quick { border-color: rgba(229, 167, 66, .65); }
+.eisenhower--later { border-color: rgba(73, 155, 207, .65); }
+
+.matrix-task {
+  display: grid;
+  gap: .1rem;
+  padding: .55rem .65rem;
+  border-radius: .75rem;
+  background: rgba(255,255,255,.055);
+}
+.matrix-task small { opacity: .62; }
+
+.task-card { gap: .7rem; }
+.task-card__actions { gap: .45rem; }
+.task-card__actions button { flex: 0 1 auto; }
+
+.split-form {
+  padding: .65rem;
+  border-radius: .85rem;
+  background: rgba(255,255,255,.055);
+}
+.split-form input {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.subtask-list {
+  padding-left: .55rem;
+  border-left: 2px solid rgba(255,255,255,.1);
+}
+.subtask-row {
+  padding: .35rem .5rem;
+  border-radius: .6rem;
+  background: rgba(255,255,255,.025);
+}
+
+.mindmap-view {
+  overflow-x: auto;
+  padding-bottom: .5rem;
+}
+
+.mindmap-project {
+  min-width: 520px;
+  padding: .9rem;
+  border: 1px solid rgba(255,255,255,.09);
+  border-radius: 1rem;
+  background: rgba(0,0,0,.12);
+}
+
+.mindmap-project__root {
+  display: inline-grid;
+  gap: .15rem;
+  min-width: 180px;
+  padding: .8rem 1rem;
+  border-radius: .9rem;
+  background: rgba(255,255,255,.11);
+  border: 1px solid rgba(255,255,255,.15);
+}
+
+.mindmap-branch {
+  list-style: none;
+  margin: .45rem 0 0 1.25rem;
+  padding: 0 0 0 1.2rem;
+  border-left: 2px solid rgba(255,255,255,.13);
+}
+
+.mindmap-branch--root { margin-left: .4rem; }
+.mindmap-task { position: relative; padding: .45rem 0; }
+.mindmap-task::before {
+  content: "";
+  position: absolute;
+  left: -1.2rem;
+  top: 1.55rem;
+  width: 1rem;
+  border-top: 2px solid rgba(255,255,255,.13);
+}
+
+.mindmap-node {
+  display: inline-grid;
+  gap: .15rem;
+  min-width: 220px;
+  max-width: 320px;
+  padding: .7rem .8rem;
+  border-radius: .85rem;
+  border: 1px solid rgba(255,255,255,.1);
+  background: rgba(255,255,255,.05);
+}
+
+@media (max-width: 620px) {
+  .eisenhower-board { grid-template-columns: 1fr; }
+  .eisenhower-cell { min-height: auto; }
+  .importance-choice { min-height: 46px; }
+  .task-card__actions button { flex: 1 1 140px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .importance-choice { transition: none; }
+}
