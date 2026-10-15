@@ -102,31 +102,27 @@ Le bouton **« Aide-moi »** demande à une IA connectée de proposer de petites
 
 Le découpage IA donne **0 XP de découpage**. L’utilisateur peut toujours gagner les XP normaux en réalisant les sous-tâches elles-mêmes.
 
-## Mindmap en graphe
+## Mindmap
 
-La Mindmap est un graphe interactif de projets, tâches (sous-tâches comprises)
-et catégories. L’ancienne arborescence a été remplacée.
+La vue Mindmap représente :
 
-Sélectionner deux nœuds, ou utiliser les deux sélecteurs, permet de créer ou
-supprimer un lien :
+```text
+Projet / Boss
+  └── Tâche
+       ├── Sous-tâche
+       └── Sous-tâche
+```
 
-- **Projet** : rattache la tâche au projet ; un nouveau rattachement remplace son
-  projet manuel précédent. Les associations issues de catégories sont indiquées
-  en pointillés et peuvent être masquées localement en retirant leur lien.
-- **Bloquant** : la première tâche est bloquée par la seconde. Le bouton
-  **Inverser le sens** permet de choisir la direction ; les boucles sont refusées.
-  La tâche bloquée reste visible mais ne peut pas être terminée ou proposée par
-  le planning tant que ses tâches bloquantes ne sont pas terminées.
-- **Catégorie** : affecte une catégorie locale ou Outlook à la tâche MeliApp.
-  Les catégories locales se créent dans le panneau ; les catégories Outlook
-  viennent de la synchronisation. Ces liens ne modifient pas les événements
-  Outlook, et les choix locaux restent conservés lors d’une synchronisation.
+Chaque nœud tâche affiche :
 
-Les nœuds se déplacent par glisser-déposer ou avec **Alt + flèches** au clavier.
-Le fond se déplace par glissement ; les boutons +/− ou Ctrl + molette ajustent
-le zoom. **Centrer la sélection**, **Tout voir** et **Réorganiser** aident à lire
-la carte. La sélection est légèrement mise en avant, avec son contexte voisin.
-Les liens, positions, catégories et cadrage sont sauvegardés dans IndexedDB.
+- titre ;
+- position Eisenhower ;
+- importance ;
+- durée ;
+- échéance ;
+- progression.
+
+Les tâches sans projet apparaissent dans un groupe **Sans projet**.
 
 ## Outlook
 

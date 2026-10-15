@@ -1,4 +1,3 @@
-import { isTaskBlocked } from "./task-links.js";
 import { computePriorityScore, minutesUntil } from "./scoring.js";
 import { findFreeWindows, splitTask } from "./scheduling.js";
 
@@ -66,7 +65,7 @@ const taskRemainingMinutes = (task) => {
 };
 
 const eligibleTasks = (tasks = []) => tasks
-  .filter((task) => task && task.status !== "completed" && !task.parentTaskId && !isTaskBlocked(task, tasks))
+  .filter((task) => task && task.status !== "completed" && !task.parentTaskId)
   .map((task) => ({ ...task, remainingMinutes: taskRemainingMinutes(task) }));
 
 const pushBlock = (blocks, block) => {

@@ -1,4 +1,3 @@
-import { blockersFor, isTaskBlocked } from "./domain/task-links.js";
 import { categoryPresentation } from "./domain/outlook-categories.js";
 import { linkedProjects } from "./domain/project-outlook.js";
 import { features as baseFeatures } from "./features.js";
@@ -112,10 +111,6 @@ const compactTaskMeta = (state, task) => {
     el("span", { className: "task-chip", text: `${task.estimateMinutes ?? 25} min` }),
     el("span", { className: "task-chip", text: `Imp. ${normalizeImportance(task.importance)}` })
   );
-  for (const id of task.localCategoryIds ?? []) {
-    const category = (state.features?.taskMindmap?.categories ?? []).find(item => item.id === id);
-    if (category) wrap.append(el("span", { className: "task-chip", text: `# ${category.name}` }));
-  }
   const category = categoryPresentation(task);
   if (category.label) wrap.append(el("span", { className: `outlook-category-tag${category.style ? " has-category" : ""}`, style: category.style, text: category.label }));
   if (project) wrap.append(el("span", { className: "task-chip", text: project }));
@@ -173,13 +168,8 @@ const taskCard = (state, task, { compact = false } = {}) => {
     ]),
     compactTaskMeta(state, task)
   ]);
-  const blockers = blockersFor(task, taskItems(state));
-  if (blockers.length) {
-    complete.disabled = true;
-    main.append(el("small", { className: "task-blocked", text: `Bloquée par : ${blockers.map(item => item.title).join(", ")}` }));
-  }
   card.append(main);
-  if (task.status !== "completed") card.append(button("Pas à pas", "guide.start", { "data-id": task.id, className: "guide-launch", disabled: blockers.length > 0, "aria-label": `Commencer ${task.title} pas à pas` }));
+  if (task.status !== "completed") card.append(button("Pas à pas", "guide.start", { "data-id": task.id, className: "guide-launch", "aria-label": `Commencer ${task.title} pas à pas` }));
 
   if (progress) {
     card.append(el("div", { className: "task-mini-progress" }, [
@@ -350,7 +340,7 @@ const listRender = (state) => {
 const matrixTask = (state, task) => el("article", { className: `matrix-task${categoryPresentation(task).style ? " has-outlook-category" : ""}`, style: categoryPresentation(task).style }, [
   el("div", { className: "matrix-task__top" }, [
     el("strong", { text: task.title }),
-    button("✓", "tasks.complete", { className: "matrix-task__done", disabled: isTaskBlocked(task, taskItems(state)), "data-id": task.id, "aria-label": `Terminer ${task.title}` })
+    button("✓", "tasks.complete", { className: "matrix-task__done", "data-id": task.id, "aria-label": `Terminer ${task.title}` })
   ]),
   el("small", { className: "muted", text: `${formatDeadline(task.deadline, true)} · imp. ${normalizeImportance(task.importance)}` }),
   linkedProjects(state, task).length ? el("small", { className: "muted", text: linkedProjects(state, task).map((project) => project.title).join(" · ") }) : null,
@@ -381,6 +371,59 @@ const matrixRender = (state) => el("div", { className: "stack task-view" }, [
   ]),
   matrixBoard(state)
 ]);
+
+const treeTask = (state, task) => {
+  const quadrant = eisenhowerQuadrant(task);
+  const children = taskItems(state).filter((item) => item.parentTaskId === task.id);
+  const item = el("li", { className: "mindmap-task" }, [
+    el("article", { className: `mindmap-node${categoryPresentation(task).style ? " has-outlook-category" : ""}`, style: categoryPresentation(task).style }, [
+      el("strong", { text: task.title }),
+      el("span", { className: `task-chip quadrant-${quadrant.id}`, text: `${quadrant.icon} ${quadrant.title}` }),
+      el("small", { className: "muted", text: `Imp. ${normalizeImportance(task.importance)} · ${task.estimateMinutes ?? 25} min · ${formatDeadline(task.deadline, true)}` })
+    ])
+  ]);
+  if (children.length) {
+    const branch = el("ul", { className: "mindmap-branch" });
+    for (const child of children) branch.append(treeTask(state, child));
+    item.append(branch);
+  }
+  return item;
+};
+
+const mindmapRender = (state) => {
+  const root = el("div", { className: "stack mindmap-view" }, [
+    el("div", { className: "task-view-heading" }, [el("div", {}, [el("h3", { text: "Mindmap" }), el("p", { className: "muted", text: "Vue projet → tâche → étapes. À utiliser pour comprendre, pas pour se perdre dans une carte du métro." })])])
+  ]);
+  const all = taskItems(state);
+  const projectList = projectItems(state);
+  const unassigned = all.filter((task) => !linkedProjects(state, task).length && !task.parentTaskId);
+
+  for (const project of projectList) {
+    const roots = all.filter((task) => linkedProjects(state, task).some((linked) => linked.id === project.id) && !task.parentTaskId);
+    const section = el("section", { className: "mindmap-project" }, [
+      el("div", { className: "mindmap-project__root" }, [
+        el("strong", { text: project.title }),
+        el("small", { className: "muted", text: project.deadline ? formatDeadline(project.deadline) : "Sans échéance projet" })
+      ])
+    ]);
+    const branch = el("ul", { className: "mindmap-branch mindmap-branch--root" });
+    if (!roots.length) branch.append(el("li", { className: "muted", text: "Aucune tâche reliée" }));
+    for (const task of roots) branch.append(treeTask(state, task));
+    section.append(branch);
+    root.append(section);
+  }
+
+  if (unassigned.length) {
+    const section = el("section", { className: "mindmap-project" }, [el("div", { className: "mindmap-project__root", text: "Sans projet" })]);
+    const branch = el("ul", { className: "mindmap-branch mindmap-branch--root" });
+    for (const task of unassigned) branch.append(treeTask(state, task));
+    section.append(branch);
+    root.append(section);
+  }
+
+  if (!projectList.length && !unassigned.length) root.append(el("div", { className: "task-empty", text: "La mindmap apparaîtra quand il y aura des tâches." }));
+  return root;
+};
 
 const createChildTask = (parent, title, source, index = 0) => ({
   id: uid("task"),
@@ -575,6 +618,14 @@ export const taskWorkspaceFeatures = {
         }
       }
       return state;
+    }
+  },
+
+  taskMindmap: {
+    description: "Mindmap",
+    ui: {
+      order: 20,
+      render: ({ state }) => mindmapRender(state)
     }
   },
 

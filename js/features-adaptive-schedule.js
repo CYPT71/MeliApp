@@ -248,8 +248,7 @@ const EVENTS = [
   "task:deleted",
   "task:completed",
   "task:deferred",
-  "calendar:task-import",
-  "task:links-changed"
+  "calendar:task-import"
 ];
 
 export const adaptiveScheduleFeatures = {

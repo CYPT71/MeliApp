@@ -1,4 +1,3 @@
-import { isTaskBlocked } from "./domain/task-links.js";
 import { dateKey } from "./domain/calendar.js";
 import { linkedProjects, matchesProjectCategories } from "./domain/project-outlook.js";
 import { categoryPresentation } from "./domain/outlook-categories.js";
@@ -207,7 +206,7 @@ const projectCard = (state, project) => {
         el("span", { text: task.status === "completed" ? "✓" : "○" }),
         el("span", { text: task.title }),
         el("small", { className: "muted", text: task.deadline ? dateLabel(task.deadline) : "" }),
-        task.status !== "completed" ? button("Pas à pas", "guide.start", { "data-id": task.id, disabled: isTaskBlocked(task, taskItems(state)), "aria-label": `Commencer ${task.title} pas à pas` }) : null
+        task.status !== "completed" ? button("Pas à pas", "guide.start", { "data-id": task.id, "aria-label": `Commencer ${task.title} pas à pas` }) : null
       ]));
     }
     root.append(list);

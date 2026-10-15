@@ -1,4 +1,3 @@
-import { isTaskBlocked } from "./domain/task-links.js";
 import { linkedProjects } from "./domain/project-outlook.js";
 import { categoryPresentation } from "./domain/outlook-categories.js";
 import { eventKey, normalizePlacement } from "./domain/calendar-classification.js";
@@ -86,7 +85,7 @@ const taskForm = (state, task) => {
   const defaultRange = featureState(state, "schedulePreferences", { defaultFlexRangeMinutes: 120 }).defaultFlexRangeMinutes ?? 120;
   return node("form", { className: "inspector-form stack", "data-submit-action": "item-inspector.save-task" }, [
     node("h2", { text: "Préciser la tâche" }),
-    task.status !== "completed" ? node("button", { type: "button", "data-action": "guide.start", "data-id": task.id, disabled: isTaskBlocked(task, state.features?.tasks?.items ?? []), text: "Commencer pas à pas" }) : null,
+    task.status !== "completed" ? node("button", { type: "button", "data-action": "guide.start", "data-id": task.id, text: "Commencer pas à pas" }) : null,
     field("Titre", "title", { value: task.title ?? "" }),
     node("div", { className: "inspector-grid" }, [
       field("Échéance", "deadline", { type: "datetime-local", value: task.deadline ? toDateTimeLocal(task.deadline) : "" }),

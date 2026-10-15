@@ -360,6 +360,52 @@
   border-radius: 50%;
 }
 
+.mindmap-view {
+  overflow-x: auto;
+  padding-bottom: .5rem;
+}
+.mindmap-project {
+  min-width: 460px;
+  padding: .85rem;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: .9rem;
+  background: rgba(0,0,0,.1);
+}
+.mindmap-project__root {
+  display: inline-grid;
+  gap: .12rem;
+  min-width: 170px;
+  padding: .7rem .85rem;
+  border-radius: .8rem;
+  background: rgba(255,255,255,.1);
+}
+.mindmap-branch {
+  list-style: none;
+  margin: .4rem 0 0 1rem;
+  padding: 0 0 0 1rem;
+  border-left: 1px solid rgba(255,255,255,.15);
+}
+.mindmap-branch--root { margin-left: .25rem; }
+.mindmap-task { position: relative; padding: .35rem 0; }
+.mindmap-task::before {
+  content: "";
+  position: absolute;
+  left: -1rem;
+  top: 1.35rem;
+  width: .8rem;
+  border-top: 1px solid rgba(255,255,255,.15);
+}
+.mindmap-node {
+  display: inline-grid;
+  gap: .25rem;
+  min-width: 210px;
+  max-width: 300px;
+  padding: .65rem .7rem;
+  border-radius: .75rem;
+  border: 1px solid rgba(255,255,255,.09);
+  background: rgba(255,255,255,.045);
+}
+
 @media (max-width: 760px) {
   .task-create-options,
   .task-edit-grid { grid-template-columns: 1fr 1fr; }
@@ -403,8 +449,7 @@
 
 .outlook-category-tag { display: inline-block; align-self: flex-start; padding: .2rem .5rem; border-radius: .4rem; font-size: .75rem; overflow-wrap: anywhere; background: #ffffff14; }
 .outlook-category-tag.has-category { background: var(--category-color); color: var(--category-ink); }
-.task-card.has-outlook-category, .matrix-task.has-outlook-category, .project-task-row.has-outlook-category, .project-outlook-event.has-outlook-category { border-left: 4px solid var(--category-color); }
+.task-card.has-outlook-category, .matrix-task.has-outlook-category, .mindmap-node.has-outlook-category, .project-task-row.has-outlook-category, .project-outlook-event.has-outlook-category { border-left: 4px solid var(--category-color); }
 .task-card.has-outlook-category, .matrix-task.has-outlook-category { background: color-mix(in srgb, var(--category-color) 12%, #1c2029); }
 
 .adaptive-plan-block.has-outlook-category { border-left: 4px solid var(--category-color); }
-.task-blocked{display:block;margin-top:.5rem;color:var(--warning,#ffd28b);overflow-wrap:anywhere}

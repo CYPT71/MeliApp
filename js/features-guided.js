@@ -1,4 +1,3 @@
-import { isTaskBlocked } from "./domain/task-links.js";
 const tasks = (state) => state.features?.tasks?.items ?? [];
 const current = (state) => state.features?.guided ?? { sessions: {}, activeTaskId: null };
 const update = (state, value) => ({ ...state, features: { ...state.features, guided: value } });
@@ -8,7 +7,7 @@ const requestId = () => `guide_${Date.now()}_${Math.random().toString(36).slice(
 
 export const createGuidedSession = (state, taskId) => {
   const task = tasks(state).find((item) => item.id === taskId);
-  if (!task || task.status === "completed" || isTaskBlocked(task, tasks(state))) return null;
+  if (!task || task.status === "completed") return null;
   const steps = [], visited = new Set([taskId]);
   const visit = (parentId) => {
     for (const child of tasks(state).filter((item) => item.parentTaskId === parentId)) {
@@ -64,7 +63,6 @@ export const guidedFeatures = {
         return update(state, { ...feature, selectedTaskId: taskId || "" });
       }
       if (event === "guide:start") {
-        if (isTaskBlocked(tasks(state).find(task => task.id === payload?.taskId) ?? {}, tasks(state))) return state;
         const existing = sessions[payload?.taskId];
         const session = existing ?? createGuidedSession(state, payload?.taskId);
         if (!session) return state;
@@ -73,7 +71,6 @@ export const guidedFeatures = {
         return update(state, { ...feature, sessions, activeTaskId: session.taskId, selectedTaskId: session.taskId });
       }
       if (event === "task:completed") {
-        if (isTaskBlocked(tasks(state).find(task => task.id === payload?.id) ?? {}, tasks(state))) return state;
         for (const [id, session] of Object.entries(sessions)) {
           sessions[id] = { ...session, ...(session.taskId === payload?.id ? { status: "completed" } : {}), steps: session.steps.map((step) => step.taskId === payload?.id ? { ...step, done: true } : step) };
         }
@@ -117,7 +114,7 @@ export const guidedFeatures = {
       render: ({ state }) => {
         const feature = current(state), session = activeSession(state);
         const root = node("div", { className: "guided-workspace stack" });
-        const available = tasks(state).filter((task) => task.status !== "completed" && !isTaskBlocked(task, tasks(state)));
+        const available = tasks(state).filter((task) => task.status !== "completed");
         if (available.length) {
           const select = node("select", { name: "guidedTaskId", "aria-label": "Tâche à accompagner", "data-action": "guide.select-task" }, [node("option", { value: "", text: "Choisir une tâche existante…" })]);
           for (const task of available) {

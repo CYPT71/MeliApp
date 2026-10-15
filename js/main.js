@@ -42,7 +42,7 @@ app = createApp({
     // A failed read must never be replaced by an empty initial state.
     if (loadError) throw loadError;
     await services.storage.save(state);
-    await drafts.clearFor(change.event, route, change.payload, state);
+    await drafts.clearFor(change.event, route, change.payload);
   },
   onPersistenceError: showStorageError,
   onPersisted: () => {

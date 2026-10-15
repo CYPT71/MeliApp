@@ -1,4 +1,3 @@
-import { isTaskBlocked } from "./domain/task-links.js";
 import { refreshImportedTaskMetadata } from "./domain/project-outlook.js";
 import { calendarViewFeature } from "./features-calendar.js";
 import { calendarRange } from "./domain/calendar.js";
@@ -82,7 +81,7 @@ const rankedCandidates = (state, now = Date.now()) => {
   const energy = energyValue(state);
   const available = freeWindowMinutes(state, now);
   const maxChunk = energy <= 2 ? Math.min(available, 10) : energy <= 4 ? Math.min(available, 20) : available;
-  const active = taskItems(state).filter((task) => task.status !== "completed" && !isTaskBlocked(task, taskItems(state)));
+  const active = taskItems(state).filter((task) => task.status !== "completed");
   const preferred = energy <= 2
     ? active.filter((task) => asNumber(task.difficulty, 3) <= 2 || asNumber(task.estimateMinutes, 30) <= 15)
     : active;
@@ -295,7 +294,6 @@ export const features = {
         items = items.map((task) => task.id === payload?.id ? normalizeTaskPayload({ ...task, ...payload, id: task.id, createdAt: task.createdAt }) : task);
       }
       if (event === "task:deleted") items = items.filter((task) => task.id !== payload?.id);
-      if (event === "task:completed" && isTaskBlocked(items.find(task => task.id === payload?.id) ?? {}, items)) return state;
       if (event === "task:completed") items = items.map((task) => task.id === payload?.id ? { ...task, status: "completed", progress: 1, updatedAt: new Date().toISOString() } : task);
       if (event === "task:progress") items = items.map((task) => task.id === payload?.id ? { ...task, progress: Math.min(1, Math.max(0, asNumber(payload.progress))), updatedAt: new Date().toISOString() } : task);
       if (event === "task:deferred") {
@@ -361,7 +359,7 @@ export const features = {
   planner: {
     description: "Planner local",
     state: { current: null, candidates: [], index: 0, computedAt: null },
-    when: ["app:start", "app:resume", "sync:manual", "energy:set", "task:created", "task:updated", "task:deleted", "task:completed", "task:deferred", "task:progress", "planner:cycle", "planner:reduce", "session:completed", "task:links-changed"],
+    when: ["app:start", "app:resume", "sync:manual", "energy:set", "task:created", "task:updated", "task:deleted", "task:completed", "task:deferred", "task:progress", "planner:cycle", "planner:reduce", "session:completed"],
     run: ({ state, event }) => {
       const candidates = rankedCandidates(state);
       const previous = featureState(state, "planner");
@@ -474,7 +472,7 @@ export const features = {
       let gain = event === "session:start" ? 5 : event === "session:completed" ? 15 : 0;
       if (event === "task:completed") {
         const task = taskItems(state).find(item => item.id === payload?.id);
-        if (task && !isTaskBlocked(task, taskItems(state)) && !rewarded.has(task.id)) {
+        if (task && !rewarded.has(task.id)) {
           gain += xpForTask({ minutes: task.estimateMinutes, difficulty: task.difficulty, importance: task.importance, started: task.progress > 0 });
           rewarded.add(task.id);
           completedAt[task.id] = new Date().toISOString();

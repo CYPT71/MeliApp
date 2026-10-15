@@ -45,7 +45,7 @@ const pageCopy = Object.freeze({
     questHint: "Faire avancer un projet actif"
   },
   mindmap: {
-    intro: "Relie projets, tâches et catégories. Sélectionne deux éléments pour créer ou retirer un lien, puis organise librement le graphe.",
+    intro: "Prends de la hauteur sur les projets et leurs branches sans perdre le fil dans un défilement horizontal sans fin.",
     quest: "Exploration",
     questHint: "Clarifier une branche"
   },
