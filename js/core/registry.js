@@ -7,6 +7,8 @@ import { spotifyFriendlyOverride } from "../features-spotify-friendly.js";
 import { dataP2pOverride } from "../features-data-p2p.js";
 import { calendarSourceFeatures } from "../features-calendar-sources.js";
 import { adaptiveScheduleFeatures } from "../features-adaptive-schedule.js";
+import { schedulePreferenceFeatures } from "../features-schedule-preferences.js";
+import { scheduleBehaviorOverride } from "../features-schedule-behavior.js";
 import { calendarTaskFeatures } from "../features-calendar-tasks.js";
 import { taskWorkspaceFeatures } from "../features-tasks-workspace.js";
 import { taskContextFeatures } from "../features-task-context.js";
@@ -24,6 +26,8 @@ export const features = Object.freeze(
     ...dataP2pOverride,
     ...calendarSourceFeatures,
     ...adaptiveScheduleFeatures,
+    ...schedulePreferenceFeatures,
+    ...scheduleBehaviorOverride,
     ...calendarTaskFeatures,
     ...taskWorkspaceFeatures,
     ...taskContextFeatures,
