@@ -17,6 +17,8 @@ La fondation technique est en place :
 - isolation des erreurs par feature ;
 - persistance IndexedDB ;
 - rendu et actions UI génériques ;
+- pages de feature générées automatiquement via le paramètre `page` ;
+- navigation automatique entre les pages ;
 - helpers fonctionnels de scoring, planning, XP et reducers ;
 - PWA minimale avec Service Worker ;
 - tests unitaires avec le runner natif de Node ;
@@ -75,9 +77,84 @@ Le moteur :
 6. enchaîne le nouvel état ;
 7. persiste ;
 8. relance le rendu ;
-9. branche les actions UI via délégation d’événements.
+9. branche les actions UI via délégation d’événements ;
+10. découvre automatiquement les features ayant une page et construit la navigation.
 
-Ajouter une feature ne doit donc pas demander une modification de `main.js` ou du runner générique.
+Ajouter une feature ne doit donc pas demander une modification de `main.js`, du runner, du renderer ou du routeur.
+
+## Une feature peut avoir sa propre page
+
+Une feature devient une page avec **un seul paramètre dans l’objet**.
+
+Version minimale :
+
+```js
+export const features = {
+  tasks: {
+    description: "Mes tâches",
+    page: true,
+    ui: {
+      render: ({ state }) => {
+        const node = document.createElement("div");
+        node.textContent = `${state.tasks.length} tâche(s)`;
+        return node;
+      }
+    }
+  }
+};
+```
+
+Le core crée automatiquement :
+
+- la route `#/tasks` ;
+- l’entrée de navigation « Mes tâches » ;
+- le titre de la page ;
+- le rendu exclusif de cette feature sur sa route.
+
+Aucun fichier de route, aucun menu et aucun branchement dans `main.js` ne sont à créer.
+
+Pour personnaliser la page :
+
+```js
+export const features = {
+  settings: {
+    description: "Réglages",
+
+    page: {
+      path: "preferences",
+      title: "Mes réglages",
+      icon: "⚙️",
+      nav: true,
+      order: 20
+    },
+
+    ui: {
+      render: () => document.createTextNode("Contenu de la page")
+    }
+  }
+};
+```
+
+Cela produit la route :
+
+```text
+#/preferences
+```
+
+Paramètres disponibles :
+
+| Paramètre | Rôle | Défaut |
+|---|---|---|
+| `page: true` | active une page avec les valeurs automatiques | - |
+| `page.path` | chemin dans le hash | nom de la feature |
+| `page.title` | titre et label de navigation | `description` puis nom |
+| `page.icon` | préfixe visuel optionnel | aucun |
+| `page.nav` | affiche ou masque la page dans la navigation | `true` |
+| `page.order` | ordre dans le menu | `0` |
+
+Une feature **sans `page`** reste un widget de l’accueil. Une feature **avec `page`** est rendue uniquement sur sa page.
+
+Le routeur utilise des routes hash (`#/...`) afin de rester compatible avec GitHub Pages sans configuration serveur ni fallback exotique inventé à trois heures du matin.
 
 ## Arborescence actuelle
 
@@ -93,6 +170,7 @@ Ajouter une feature ne doit donc pas demander une modification de `main.js` ou d
 │   │   ├── app.js
 │   │   ├── events.js
 │   │   ├── registry.js
+│   │   ├── router.js
 │   │   └── state.js
 │   ├── domain/
 │   │   ├── reducers.js
@@ -124,6 +202,7 @@ Ajouter une feature ne doit donc pas demander une modification de `main.js` ou d
 Infrastructure agnostique du produit.
 
 - `registry.js` : contrat des features, validation, sélection par événement, actions UI.
+- `router.js` : découverte automatique des pages, routes hash, métadonnées de navigation.
 - `state.js` : état de base, état initial généré depuis le registre, merge du stockage local.
 - `app.js` : runner, queue de dispatch, persistance, isolation des erreurs.
 - `events.js` : noms d’événements partagés.
@@ -151,13 +230,14 @@ Le domaine ne doit pas appeler directement `fetch`, IndexedDB, Notification ou u
 Infrastructure UI générique :
 
 - rendu des `feature.ui.render` ;
+- navigation des pages générée à partir de `feature.page` ;
 - délégation de `data-action` vers `feature.ui.actions`.
 
 Les features peuvent produire des `Node`/`DocumentFragment` sans que le renderer connaisse leur métier.
 
 ## Contrat d’une feature
 
-Toutes les clés sauf `description` sont techniquement optionnelles, mais une feature métier utilisera généralement :
+Toutes les clés sont optionnelles selon le besoin métier :
 
 ```js
 {
@@ -166,6 +246,16 @@ Toutes les clés sauf `description` sont techniquement optionnelles, mais une fe
   state: {
     // état initial spécifique à la feature
   },
+
+  page: true,
+  // ou :
+  // page: {
+  //   path: "route",
+  //   title: "Titre",
+  //   icon: "⚡",
+  //   nav: true,
+  //   order: 10
+  // },
 
   when: [
     "event:name"
@@ -187,7 +277,7 @@ Toutes les clés sauf `description` sont techniquement optionnelles, mais une fe
 
   ui: {
     zone: "main",
-    render: ({ state, dispatch, feature }) => document.createElement("div"),
+    render: ({ state, dispatch, feature, route }) => document.createElement("div"),
     actions: {
       "feature.action": ({ event, target, state, dispatch }) => {}
     }
@@ -195,10 +285,7 @@ Toutes les clés sauf `description` sont techniquement optionnelles, mais une fe
 }
 ```
 
-`run` peut retourner soit :
-
-- un nouvel état ;
-- un contexte contenant `{ state: nouvelEtat }`.
+`run` peut retourner soit un nouvel état, soit un contexte contenant `{ state: nouvelEtat }`.
 
 Une exception dans une feature crée un diagnostic local et n’empêche pas les suivantes de s’exécuter.
 
@@ -219,17 +306,11 @@ Règles du projet :
 
 Comme les ES Modules navigateur ne fonctionnent pas correctement avec `file://`, servir le dossier avec n’importe quel serveur HTTP statique.
 
-Avec Python :
-
 ```bash
 python3 -m http.server 8080
 ```
 
-Puis ouvrir :
-
-```text
-http://localhost:8080
-```
+Puis ouvrir `http://localhost:8080`.
 
 Node n’est nécessaire que pour les tests et vérifications de CI.
 
@@ -239,31 +320,23 @@ Aucune dépendance de test externe n’est requise.
 
 ```bash
 npm test
-```
-
-Vérification syntaxique :
-
-```bash
 npm run check
 ```
 
-Les tests couvrent actuellement :
+Les tests couvrent notamment :
 
 - génération automatique de l’état depuis le registre ;
 - sélection des features par événement ;
-- ordre d’exécution ;
-- chaînage d’état ;
+- ordre d’exécution et chaînage d’état ;
 - isolation des erreurs ;
 - persistance après dispatch ;
 - validation du contrat ;
-- urgence ;
-- adéquation énergie ;
-- score de priorité ;
-- créneaux libres et buffer ;
-- découpage ;
-- sélection d’une action faisable ;
-- XP et niveaux ;
-- reducers immuables.
+- création automatique d’une page avec `page: true` ;
+- métadonnées de page ;
+- découverte et ordre des pages ;
+- résolution des routes hash ;
+- visibilité accueil/page ;
+- urgence, énergie, scoring, créneaux, découpage, XP et reducers.
 
 ## CI/CD
 
@@ -277,38 +350,21 @@ Sur Pull Request vers `main` :
 4. tests unitaires ;
 5. scan simple de secrets accidentellement commités.
 
-Sur push vers `main`, après succès de la CI :
+Sur push vers `main`, après succès de la CI : configuration et déploiement GitHub Pages.
 
-1. configuration GitHub Pages ;
-2. upload du dépôt comme site statique ;
-3. déploiement GitHub Pages.
-
-Le dépôt doit être configuré pour utiliser **GitHub Actions** comme source de Pages.
+Le runtime de production reste uniquement HTML/CSS/JS statique.
 
 ## PWA
 
-Le projet contient :
+Le projet contient `manifest.webmanifest`, `service-worker.js`, un cache du shell applicatif et une stratégie réseau avec fallback cache.
 
-- `manifest.webmanifest` ;
-- `service-worker.js` ;
-- cache du shell applicatif ;
-- stratégie réseau avec fallback cache.
-
-La PWA reste volontairement minimale pour le moment. Les icônes, l’UX d’installation et la stratégie de mise à jour contrôlée pendant une session Flow seront ajoutées avec les features correspondantes.
+Le routeur est inclus dans le cache PWA afin que les pages de features restent navigables avec le shell déjà chargé hors connexion.
 
 ## Stockage
 
 `createIndexedDbStorage()` sauvegarde l’état global dans IndexedDB.
 
-Un adapter mémoire est également fourni :
-
-```js
-import { createMemoryStorage } from "./js/services/storage.js";
-
-const storage = createMemoryStorage();
-```
-
-Il est utile pour les tests ou les environnements sans IndexedDB.
+Un adapter mémoire est également fourni pour les tests ou environnements sans IndexedDB.
 
 ## Sécurité
 
@@ -326,11 +382,13 @@ Une PWA GitHub Pages est un client public. Les intégrations OAuth doivent utili
 
 La règle architecturale est volontairement stricte : **ajouter une fonctionnalité doit principalement consister à ajouter une entrée dans l’objet `features`.**
 
-Le test mental à appliquer :
+Même chose pour les pages : **une feature obtient sa page en ajoutant `page: true` ou un objet `page`, sans créer une route manuellement.**
 
-> Est-ce que je dois modifier `main.js`, le runner ou le renderer pour ajouter cette fonctionnalité ?
+Le test mental :
 
-Si oui, il faut d’abord vérifier si le contrat générique est réellement incomplet. Il ne faut pas rajouter un branchement métier dans le core juste parce que c’est plus rapide pendant cinq minutes et plus pénible pendant cinq ans. Ce petit rite sacrificiel est précisément ce que l’architecture essaie d’éviter.
+> Est-ce que je dois modifier `main.js`, le runner, le renderer ou le routeur pour ajouter cette feature ou sa page ?
+
+Si oui, il faut vérifier si le contrat générique est réellement incomplet avant d’introduire du câblage métier dans le core.
 
 ## Documentation
 
