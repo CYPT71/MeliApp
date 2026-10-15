@@ -52,3 +52,20 @@ test("changing views and returning to today preserve calendar state", () => {
   assert.equal(today.features.calendarView.date, dateKey(new Date()));
   assert.equal(today.features.calendarView.view, "day");
 });
+
+test("opening the app resets a previously selected date to today", () => {
+  const state = createInitialState(features);
+  state.features.calendarView = { view: "day", date: "2020-01-01" };
+  const opened = features.calendarView.run({ state, event: "app:start" });
+  assert.equal(opened.features.calendarView.date, dateKey(new Date()));
+  assert.equal(opened.features.calendarView.view, "day");
+});
+
+test("day navigation crosses month boundaries in both directions", () => {
+  const state = createInitialState(features);
+  state.features.calendarView = { view: "day", date: "2026-12-31" };
+  const next = features.calendarView.run({ state, event: "calendar:navigate", payload: { direction: 1 } });
+  assert.equal(next.features.calendarView.date, "2027-01-01");
+  const previous = features.calendarView.run({ state: next, event: "calendar:navigate", payload: { direction: -1 } });
+  assert.equal(previous.features.calendarView.date, "2026-12-31");
+});
