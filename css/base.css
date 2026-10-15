@@ -16,6 +16,8 @@ body {
 
 button, input, select, textarea { font: inherit; }
 
+a { color: inherit; }
+
 .app-header {
   display: flex;
   align-items: center;
@@ -44,6 +46,31 @@ h1 { margin: .1rem 0 0; font-size: clamp(1.6rem, 8vw, 2.4rem); }
   padding: 1rem 1.25rem 3rem;
 }
 
+.feature-nav {
+  display: flex;
+  gap: .5rem;
+  overflow-x: auto;
+  padding: .25rem 0 .5rem;
+  scrollbar-width: thin;
+}
+
+.feature-nav__link {
+  flex: 0 0 auto;
+  text-decoration: none;
+  border: 1px solid rgba(255,255,255,.1);
+  background: rgba(255,255,255,.05);
+  border-radius: 999px;
+  padding: .55rem .85rem;
+  opacity: .72;
+}
+
+.feature-nav__link:hover,
+.feature-nav__link:focus-visible,
+.feature-nav__link.is-active {
+  opacity: 1;
+  background: rgba(255,255,255,.12);
+}
+
 .feature,
 .empty-state {
   border: 1px solid rgba(255,255,255,.1);
@@ -52,6 +79,15 @@ h1 { margin: .1rem 0 0; font-size: clamp(1.6rem, 8vw, 2.4rem); }
   border-radius: 1.25rem;
   padding: 1rem;
   box-shadow: 0 18px 55px rgba(0,0,0,.2);
+}
+
+.feature--page {
+  min-height: 40vh;
+}
+
+.feature-page__title {
+  margin: 0 0 1rem;
+  font-size: clamp(1.4rem, 7vw, 2.2rem);
 }
 
 .empty-state code { word-break: break-word; }
