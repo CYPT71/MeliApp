@@ -69,3 +69,70 @@ test("day navigation crosses month boundaries in both directions", () => {
   const previous = features.calendarView.run({ state: next, event: "calendar:navigate", payload: { direction: -1 } });
   assert.equal(previous.features.calendarView.date, "2026-12-31");
 });
+
+test("month view contains full Monday-to-Sunday weeks, including leap February", () => {
+  const february = calendarRange({ view: "month", date: "2024-02-15" });
+  assert.equal(dateKey(february.start), "2024-01-29");
+  assert.equal(dateKey(february.end), "2024-03-04");
+  assert.equal(february.days.length, 35);
+  assert.ok(february.days.some((date) => dateKey(date) === "2024-02-29"));
+  const fourWeeks = calendarRange({ view: "month", date: "2021-02-10" });
+  assert.equal(fourWeeks.days.length, 28);
+  const sixWeeks = calendarRange({ view: "month", date: "2026-03-15" });
+  assert.equal(sixWeeks.days.length, 42);
+  assert.equal(sixWeeks.start.getDay(), 1);
+  assert.equal(sixWeeks.days.at(-1).getDay(), 0);
+});
+
+test("month navigation clamps month-end dates and crosses years", () => {
+  const state = createInitialState(features);
+  state.features.calendarView = { view: "month", date: "2026-01-31" };
+  const next = features.calendarView.run({ state, event: "calendar:navigate", payload: { direction: 1 } });
+  assert.equal(next.features.calendarView.date, "2026-02-28");
+  const previous = features.calendarView.run({ state, event: "calendar:navigate", payload: { direction: -1 } });
+  assert.equal(previous.features.calendarView.date, "2025-12-31");
+});
+
+test("selecting a day from the month opens its daily calendar", () => {
+  const state = createInitialState(features);
+  state.features.calendarView = { view: "month", date: "2026-10-15" };
+  const opened = features.calendarView.run({ state, event: "calendar:open-day", payload: { date: "2026-10-26" } });
+  assert.deepEqual(opened.features.calendarView, { view: "day", date: "2026-10-26" });
+});
+
+test("Outlook synchronization covers the whole displayed month grid", async () => {
+  const state = createInitialState(features);
+  state.features.calendarView = { view: "month", date: "2031-01-15" };
+  const requests = [];
+  await runFeatures({ event: "sync:manual", registry: features,
+    context: { state, services: { outlook: { isConnected: () => true, listEvents: async (range) => { requests.push(range); return []; } } } } });
+  assert.equal(dateKey(new Date(requests[0].from)), "2030-12-30");
+  assert.equal(dateKey(new Date(requests[0].to)), "2031-02-03");
+});
+
+for (const selected of [null, ["work"], []]) {
+  test(`calendar selection is respected during synchronization: ${JSON.stringify(selected)}`, async () => {
+    const state = createInitialState(features);
+    state.features.calendarView.selectedCalendarIds = selected;
+    const calendars = [{ id: "work", name: "Travail" }, { id: "personal", name: "Personnel" }];
+    let received;
+    const result = await runFeatures({ event: "sync:manual", registry: features, context: { state, services: { outlook: {
+      isConnected: () => true, listCalendars: async () => calendars,
+      listEvents: async (range) => { received = range.calendarIds; return received.map((id) => ({ id, calendarId: id })); }
+    } } } });
+    assert.deepEqual(received, selected ?? ["work", "personal"]);
+    assert.deepEqual(result.state.features.calendarView.calendars, calendars);
+    assert.equal(result.state.features.calendarView.selectedCalendarIds, selected);
+    assert.deepEqual(result.state.calendar.events.map((event) => event.calendarName), (selected ?? ["work", "personal"]).map((id) => calendars.find((calendar) => calendar.id === id).name));
+  });
+}
+
+test("calendar checkboxes update the saved selection without changing the view or date", () => {
+  const state = createInitialState(features);
+  state.features.calendarView = { view: "month", date: "2026-10-15", calendars: [{ id: "a" }, { id: "b" }] };
+  const result = features.calendarView.run({ state, event: "calendar:toggle-calendar", payload: { id: "a", checked: false } });
+  assert.deepEqual(result.features.calendarView.selectedCalendarIds, ["b"]);
+  assert.equal(result.features.calendarView.view, "month");
+  assert.equal(result.features.calendarView.date, "2026-10-15");
+  assert.equal(state.features.calendarView.selectedCalendarIds, undefined);
+});

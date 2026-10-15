@@ -183,19 +183,36 @@ export const features = {
     state: { syncing: false, lastSyncAt: null, error: null },
     when: ["app:start", "app:resume", "sync:manual", "auth:microsoft:connected", ...calendarViewFeature.when],
     run: async ({ state, services }) => {
-      if (!services.outlook?.isConnected?.()) return state;
+      if (!services.outlook) return state;
+      if (!services.outlook.isConnected?.()) {
+        return {
+          ...setFeatureState(
+            setFeatureState(state, "outlookSync", (current) => ({ ...current, syncing: false, error: "OUTLOOK_RECONNECT_REQUIRED" })),
+            "microsoftAuth", (current) => ({
+              ...current, status: "disconnected",
+              connectionLost: Boolean(current.connectionLost || state.auth?.microsoft?.connected || state.calendar?.lastSyncAt)
+            })
+          ),
+          auth: { ...state.auth, microsoft: null }
+        };
+      }
       try {
         const now = Date.now();
         const range = calendarRange(state.features?.calendarView);
         const nearToday = +range.end >= now - 86400000 && +range.start <= now + 14 * 86400000;
         const from = new Date(nearToday ? Math.min(+range.start, now - 86400000) : +range.start).toISOString();
         const to = new Date(nearToday ? Math.max(+range.end, now + 14 * 86400000) : +range.end).toISOString();
-        const events = await services.outlook.listEvents({ from, to });
+        const calendars = await services.outlook.listCalendars?.();
+        const selected = state.features?.calendarView?.selectedCalendarIds;
+        const calendarIds = calendars?.filter((calendar) => !Array.isArray(selected) || selected.includes(calendar.id)).map((calendar) => calendar.id);
+        const events = await services.outlook.listEvents({ from, to, ...(calendarIds ? { calendarIds } : {}) });
+        const calendarNames = new Map((calendars ?? []).map((calendar) => [calendar.id, calendar.name]));
+        const next = calendars ? setFeatureState(state, "calendarView", (current) => ({ ...current, calendars })) : state;
         const syncedAt = new Date().toISOString();
         return {
-          ...setFeatureState(state, "outlookSync", { syncing: false, lastSyncAt: syncedAt, error: null }),
+          ...setFeatureState(next, "outlookSync", { syncing: false, lastSyncAt: syncedAt, error: null, categoryError: services.outlook.getCategoryError?.() ?? null }),
           auth: { ...state.auth, microsoft: { ...(state.auth?.microsoft ?? {}), connected: true } },
-          calendar: { events, lastSyncAt: syncedAt }
+          calendar: { events: events.map((event) => ({ ...event, calendarName: calendarNames.get(event.calendarId) ?? event.calendarName ?? null })), lastSyncAt: syncedAt }
         };
       } catch (error) {
         const next = setFeatureState(state, "outlookSync", (current) => ({

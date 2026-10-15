@@ -1,13 +1,13 @@
 import { beginPkce, consumePkceCallback, refreshPublicClientToken } from "./oauth.js";
 
 const KEY = "meliapp:microsoft";
-const DEFAULT_SCOPES = ["openid", "profile", "offline_access", "Calendars.ReadWrite"];
+const DEFAULT_SCOPES = ["openid", "profile", "offline_access", "Calendars.ReadWrite", "MailboxSettings.Read"];
 const CONFIG_ERROR = "OUTLOOK_CONFIGURATION_MISSING";
 const AUTH_MODE_ERROR = "OUTLOOK_AUTH_MODE_MUST_BE_DELEGATED";
 
 const normalizeScopes = (scopes) => {
   const unique = [...new Set((Array.isArray(scopes) ? scopes : DEFAULT_SCOPES).map((scope) => String(scope).trim()).filter(Boolean))];
-  for (const required of ["openid", "profile", "offline_access", "Calendars.ReadWrite"]) {
+  for (const required of ["openid", "profile", "offline_access", "Calendars.ReadWrite", "MailboxSettings.Read"]) {
     if (!unique.includes(required)) unique.push(required);
   }
   return unique;
@@ -24,6 +24,8 @@ export const createOutlookService = ({ clientId, tenant = "common", authMode = "
   const tokenUrl = `https://login.microsoftonline.com/${normalizedTenant}/oauth2/v2.0/token`;
   let token = sessionStorage.getItem(`${KEY}:access_token`);
   let refreshToken = sessionStorage.getItem(`${KEY}:refresh_token`);
+
+  let categoryError = null;
 
   const assertConfigured = () => {
     if (!configured) throw new Error(CONFIG_ERROR);
@@ -124,37 +126,84 @@ export const createOutlookService = ({ clientId, tenant = "common", authMode = "
     }
     if (response.status === 204) return null;
     const data = await response.json().catch(() => null);
-    if (!response.ok) throw new Error(data?.error?.message ?? "Erreur Microsoft Graph");
+    if (!response.ok) {
+      const error = new Error(data?.error?.message ?? "Erreur Microsoft Graph");
+      error.status = response.status;
+      throw error;
+    }
     return data;
   };
 
-  const listEvents = async ({ from, to }) => {
+  const listCalendars = async () => {
+    const calendars = [];
+    let path = "/me/calendars?$select=id,name,isDefaultCalendar";
+    const visited = new Set();
+    while (path) {
+      if (visited.has(path)) throw new Error("Pagination des agendas interrompue");
+      visited.add(path);
+      const data = await request(path);
+      calendars.push(...(data?.value ?? []).map((calendar) => ({
+        id: calendar.id, name: calendar.name ?? "Agenda", isDefault: Boolean(calendar.isDefaultCalendar)
+      })));
+      const next = data?.["@odata.nextLink"];
+      if (next && !next.startsWith("https://graph.microsoft.com/v1.0/")) throw new Error("Lien des agendas invalide");
+      path = next ? next.slice("https://graph.microsoft.com/v1.0".length) : null;
+    }
+    return calendars;
+  };
+
+  const listEvents = async ({ from, to, calendarIds }) => {
     const params = new URLSearchParams({
       startDateTime: from,
       endDateTime: to,
       "$orderby": "start/dateTime",
-      "$select": "id,subject,start,end,isAllDay,location,webLink"
+      "$select": "id,subject,start,end,isAllDay,location,webLink,categories"
     });
     const items = [];
-    let path = `/me/calendarView?${params.toString()}`;
-    const visited = new Set();
-    while (path) {
-      if (visited.has(path)) throw new Error("Pagination Outlook interrompue");
-      visited.add(path);
-      const data = await request(path, { headers: { Prefer: 'outlook.timezone="UTC"' } });
-      items.push(...(data?.value ?? []));
-      const next = data?.["@odata.nextLink"];
-      if (next && !next.startsWith("https://graph.microsoft.com/v1.0/")) throw new Error("Lien de pagination Outlook invalide");
-      path = next ? next.slice("https://graph.microsoft.com/v1.0".length) : null;
+    for (const calendarId of calendarIds === undefined ? [null] : [...new Set(calendarIds)]) {
+      let path = calendarId === null ? `/me/calendarView?${params.toString()}` : `/me/calendars/${encodeURIComponent(calendarId)}/calendarView?${params.toString()}`;
+      const visited = new Set();
+      while (path) {
+        if (visited.has(path)) throw new Error("Pagination Outlook interrompue");
+        visited.add(path);
+        const data = await request(path, { headers: { Prefer: 'outlook.timezone="UTC"' } });
+        items.push(...(data?.value ?? []).map((event) => ({ ...event, calendarId })));
+        const next = data?.["@odata.nextLink"];
+        if (next && !next.startsWith("https://graph.microsoft.com/v1.0/")) throw new Error("Lien de pagination Outlook invalide");
+        path = next ? next.slice("https://graph.microsoft.com/v1.0".length) : null;
+      }
+    }
+    categoryError = null;
+    const categories = new Map();
+    if (items.some((event) => event.categories?.length)) {
+      let categoryPath = "/me/outlook/masterCategories?$select=displayName,color";
+      const seen = new Set();
+      try {
+        while (categoryPath) {
+          if (seen.has(categoryPath)) throw new Error("Pagination des catégories interrompue");
+          seen.add(categoryPath);
+          const data = await request(categoryPath);
+          for (const category of data?.value ?? []) categories.set(category.displayName, category.color);
+          const next = data?.["@odata.nextLink"];
+          if (next && !next.startsWith("https://graph.microsoft.com/v1.0/")) throw new Error("Lien des catégories invalide");
+          categoryPath = next ? next.slice("https://graph.microsoft.com/v1.0".length) : null;
+        }
+      } catch (error) {
+        if (!token) throw error;
+        categoryError = error.status === 403 ? "permission" : "unavailable";
+      }
     }
     return items.map((event) => ({
       id: event.id,
+      calendarId: event.calendarId,
       title: event.subject ?? "Événement",
       start: event.start?.dateTime ? `${event.start.dateTime}${event.start.timeZone === "UTC" ? "Z" : ""}` : null,
       end: event.end?.dateTime ? `${event.end.dateTime}${event.end.timeZone === "UTC" ? "Z" : ""}` : null,
       allDay: Boolean(event.isAllDay),
       location: event.location?.displayName ?? "",
-      webLink: event.webLink ?? null
+      webLink: event.webLink ?? null,
+      categories: (event.categories ?? []).filter((name) => typeof name === "string"),
+      categoryColors: (event.categories ?? []).filter((name) => categories.has(name)).map((name) => ({ name, color: categories.get(name) }))
     })).filter((event) => event.start && event.end);
   };
 
@@ -179,9 +228,11 @@ export const createOutlookService = ({ clientId, tenant = "common", authMode = "
     logout,
     restore,
     listEvents,
+    listCalendars,
     createFocusBlock,
     isConnected: () => Boolean(token),
     isConfigured: () => configured,
+    getCategoryError: () => categoryError,
     getAuthInfo: () => ({
       mode: "delegated",
       tenant: normalizedTenant,

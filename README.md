@@ -30,7 +30,7 @@ Le produit contient notamment :
 
 | Catégorie | Route | Contenu principal |
 |---|---|---|
-| Agenda | `#/calendar` | calendrier horaire Outlook : journée, 3 jours ou semaine |
+| Agenda | `#/calendar` | calendrier horaire Outlook : journée, 3 jours, semaine ou mois |
 | Tâches | `#/tasks` | liste, matrice Eisenhower, projets, découpage |
 | Mindmap | `#/mindmap` | carte de tous les projets, tâches et sous-tâches |
 | Journée | `#/day` | Flow / focus de la journée |
@@ -128,11 +128,13 @@ Les tâches sans projet apparaissent dans un groupe **Sans projet**.
 
 Outlook n’est pas une identité utilisateur MeliApp. Il sert uniquement de **source et destination calendrier**.
 
-Le service Microsoft utilise Authorization Code + PKCE en client public avec `Calendars.ReadWrite`.
+Le service Microsoft utilise Authorization Code + PKCE en client public avec `Calendars.ReadWrite` et `MailboxSettings.Read` (lecture des couleurs de catégories).
+
+Le sélecteur **Agendas affichés** permet de cocher les agendas Outlook à réunir dans le calendrier. Tous sont sélectionnés par défaut ; le choix est conservé localement. Les couleurs des catégories sont reprises dans toutes les vues. Les comptes déjà connectés doivent réautoriser Outlook pour accorder `MailboxSettings.Read`.
 
 Le `microsoftClientId` est une configuration de déploiement de MeliApp, jamais quelque chose que l’utilisateur doit saisir dans l’interface.
 
-L’agenda propose les vues Journée, 3 jours et Semaine (du lundi au dimanche), une navigation par période et un sélecteur de date. Les rendez-vous sont affichés aux heures locales du navigateur, avec une zone pour les événements sur toute la journée. Les rendez-vous simultanés sont placés côte à côte ; cliquer sur un événement affiche ses détails.
+L’agenda propose les vues Journée, 3 jours, Semaine (du lundi au dimanche) et Mois, une navigation par période et un sélecteur de date. Les rendez-vous sont affichés aux heures locales du navigateur, avec une zone pour les événements sur toute la journée. Les rendez-vous simultanés sont placés côte à côte ; cliquer sur un événement affiche ses détails. La vue Mois résume les rendez-vous dans une grille de semaines complètes ; toucher une date ouvre sa vue Journée. Sur téléphone, les vues glissent au doigt pour passer à la période précédente ou suivante.
 
 ## Spotify
 

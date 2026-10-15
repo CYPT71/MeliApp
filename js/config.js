@@ -10,7 +10,8 @@ export const config = Object.freeze({
     "openid",
     "profile",
     "offline_access",
-    "Calendars.ReadWrite"
+    "Calendars.ReadWrite",
+    "MailboxSettings.Read"
   ]),
   spotifyClientId: String(runtime.spotifyClientId ?? "").trim()
 });

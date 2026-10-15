@@ -57,3 +57,21 @@ test("a network failure does not disconnect an authenticated user", async () => 
   assert.equal(state.features.microsoftAuth.connectionLost, false);
   assert.equal(state.features.outlookSync.error, "Failed to fetch");
 });
+
+test("sync without a browser session reports reconnection instead of silently showing cached events", async () => {
+  const initial = createInitialState(features);
+  initial.calendar = { events: [{ id: "cached", title: "Ancien rendez-vous" }], lastSyncAt: "2026-10-14T12:00:00Z" };
+  const state = await update(initial, "sync:manual", {
+    restore: async () => null, isConnected: () => false,
+    listEvents: async () => { assert.fail("Cannot synchronize without a session"); }
+  });
+  assert.equal(state.features.outlookSync.error, "OUTLOOK_RECONNECT_REQUIRED");
+  assert.equal(state.features.microsoftAuth.connectionLost, true);
+  assert.equal(panelVisible(state), true);
+  assert.equal(state.calendar.events[0].id, "cached");
+  const restored = await update(state, "app:resume", {
+    restore: async () => ({}), isConnected: () => true, listEvents: async () => []
+  });
+  assert.equal(restored.features.outlookSync.error, null);
+  assert.equal(panelVisible(restored), false);
+});

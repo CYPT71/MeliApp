@@ -1,4 +1,4 @@
-const CACHE = "meliapp-shell-v19";
+const CACHE = "meliapp-shell-v25";
 const SHELL = [
   "./",
   "./index.html",
@@ -6,6 +6,7 @@ const SHELL = [
   "./css/calendar.css",
   "./js/features-calendar.js",
   "./js/domain/calendar.js",
+  "./js/domain/outlook-categories.js",
   "./css/energy.css",
   "./css/connections.css",
   "./css/tasks.css",

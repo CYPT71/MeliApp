@@ -1,4 +1,4 @@
-export const CALENDAR_VIEWS = Object.freeze({ day: 1, three: 3, week: 7 });
+export const CALENDAR_VIEWS = Object.freeze({ day: 1, three: 3, week: 7, month: 0 });
 
 export const dateKey = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 export const localDate = (value) => {
@@ -9,9 +9,23 @@ export const localDate = (value) => {
   return new Date();
 };
 export const addDays = (date, days) => new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
+export const addMonths = (date, amount) => {
+  const first = new Date(date.getFullYear(), date.getMonth() + amount, 1);
+  const lastDay = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
+  return new Date(first.getFullYear(), first.getMonth(), Math.min(date.getDate(), lastDay));
+};
 export const calendarRange = (settings = {}) => {
   const view = Object.hasOwn(CALENDAR_VIEWS, settings.view) ? settings.view : "week";
   let start = localDate(settings.date);
+  if (view === "month") {
+    const first = new Date(start.getFullYear(), start.getMonth(), 1);
+    const next = new Date(start.getFullYear(), start.getMonth() + 1, 1);
+    start = addDays(first, -((first.getDay() + 6) % 7));
+    const end = addDays(next, (7 - (next.getDay() + 6) % 7) % 7);
+    const days = [];
+    for (let day = start; day < end; day = addDays(day, 1)) days.push(day);
+    return { view, start, end, days };
+  }
   if (view === "week") start = addDays(start, -((start.getDay() + 6) % 7));
   const days = Array.from({ length: CALENDAR_VIEWS[view] }, (_, index) => addDays(start, index));
   return { view, start, end: addDays(start, days.length), days };

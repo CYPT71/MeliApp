@@ -122,18 +122,21 @@ export const connectionFriendlyOverride = {
       render: ({ state }) => {
         const current = featureState(state, "microsoftAuth", {});
         const connected = current.status === "connected" || Boolean(state.auth?.microsoft?.connected);
+        const cached = !connected && Boolean(state.calendar?.events?.length || state.calendar?.lastSyncAt);
         const root = node("div", { className: "stack connection-panel" });
 
         root.append(
           node("div", { className: "connection-panel__hero" }, [
             node("span", { className: "connection-panel__icon", text: "📅" }),
             node("div", { className: "stack compact" }, [
-              node("strong", { text: connected ? "Calendrier Outlook connecté" : "Connecte ton calendrier Outlook" }),
+              node("strong", { text: connected ? "Calendrier Outlook connecté" : cached ? "Reconnecte ton calendrier Outlook" : "Connecte ton calendrier Outlook" }),
               node("span", {
                 className: "muted",
                 text: connected
                   ? "Tes rendez-vous servent à construire des créneaux réalistes."
-                  : "MeliApp importe tes événements et organise tes missions autour de tes vrais créneaux."
+                  : cached
+                    ? "Les rendez-vous affichés sont enregistrés sur cet appareil. Ce navigateur n’a pas de connexion Outlook active : reconnecte ton calendrier ici pour les actualiser."
+                    : "MeliApp importe tes événements et organise tes missions autour de tes vrais créneaux."
               })
             ])
           ])

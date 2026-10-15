@@ -95,3 +95,56 @@ test("Outlook calendar follows pagination so busy days contain every event", asy
     globalThis.fetch = previousFetch;
   }
 });
+
+for (const status of [200, 403, 503]) {
+  test(`Outlook category colors: metadata status ${status} preserves calendar events`, async () => {
+    const previousStorage = globalThis.sessionStorage, previousFetch = globalThis.fetch;
+    globalThis.sessionStorage = memoryStorage();
+    sessionStorage.setItem("meliapp:microsoft:access_token", "test-access");
+    const calls = [];
+    globalThis.fetch = async (url) => {
+      calls.push(String(url));
+      if (String(url).includes("masterCategories")) return new Response(JSON.stringify(status === 200
+        ? { value: [{ displayName: "Travail", color: "preset0" }, { displayName: "Santé", color: "preset4" }] }
+        : { error: { message: "Unavailable" } }), { status });
+      return new Response(JSON.stringify({ value: [{ id: "one", subject: "Rendez-vous", start: { dateTime: "2026-10-15T09:00:00", timeZone: "UTC" }, end: { dateTime: "2026-10-15T10:00:00", timeZone: "UTC" }, categories: ["Travail", "Santé", "Inconnue"] }] }));
+    };
+    try {
+      const service = createOutlookService({ clientId: "test-client" });
+      assert.ok(service.getAuthInfo().scopes.includes("MailboxSettings.Read"));
+      const events = await service.listEvents({ from: "2026-10-15", to: "2026-10-16" });
+      assert.equal(events.length, 1);
+      assert.deepEqual(events[0].categories, ["Travail", "Santé", "Inconnue"]);
+      assert.deepEqual(events[0].categoryColors, status === 200 ? [{ name: "Travail", color: "preset0" }, { name: "Santé", color: "preset4" }] : []);
+      assert.equal(service.getCategoryError(), status === 200 ? null : status === 403 ? "permission" : "unavailable");
+      assert.equal(service.isConnected(), true);
+      assert.ok(new URL(calls[0]).searchParams.get("$select").split(",").includes("categories"));
+    } finally { globalThis.sessionStorage = previousStorage; globalThis.fetch = previousFetch; }
+  });
+}
+
+test("Outlook lists calendars across pages and requests only selected calendar IDs", async () => {
+  const previousStorage = globalThis.sessionStorage, previousFetch = globalThis.fetch;
+  globalThis.sessionStorage = memoryStorage();
+  sessionStorage.setItem("meliapp:microsoft:access_token", "test-access");
+  const paths = [];
+  globalThis.fetch = async (url) => {
+    const parsed = new URL(url); paths.push(parsed.pathname + parsed.search);
+    if (parsed.pathname.endsWith("/calendars")) {
+      return new Response(JSON.stringify(parsed.searchParams.has("$skip")
+        ? { value: [{ id: "personal", name: "Personnel" }] }
+        : { value: [{ id: "work/id", name: "Travail", isDefaultCalendar: true }], "@odata.nextLink": "https://graph.microsoft.com/v1.0/me/calendars?$skip=1" }));
+    }
+    assert.ok(parsed.pathname.includes("/calendars/work%2Fid/calendarView"));
+    return new Response(JSON.stringify({ value: [{ id: "event", subject: "Travail", start: { dateTime: "2026-10-15T09:00:00", timeZone: "UTC" }, end: { dateTime: "2026-10-15T10:00:00", timeZone: "UTC" } }] }));
+  };
+  try {
+    const service = createOutlookService({ clientId: "test-client" });
+    assert.deepEqual(await service.listCalendars(), [{ id: "work/id", name: "Travail", isDefault: true }, { id: "personal", name: "Personnel", isDefault: false }]);
+    const events = await service.listEvents({ from: "2026-10-15", to: "2026-10-16", calendarIds: ["work/id"] });
+    assert.equal(events[0].calendarId, "work/id");
+    const count = paths.length;
+    assert.deepEqual(await service.listEvents({ from: "2026-10-15", to: "2026-10-16", calendarIds: [] }), []);
+    assert.equal(paths.length, count);
+  } finally { globalThis.sessionStorage = previousStorage; globalThis.fetch = previousFetch; }
+});
