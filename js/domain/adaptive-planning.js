@@ -4,7 +4,7 @@ import { findFreeWindows, splitTask } from "./scheduling.js";
 const MINUTE = 60_000;
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const asNumber = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
-const COURSE_HINTS = /\b(cours|classe|td|tp|cm|devoir|dm|partiel|examen|exam|révision|revision|rendre|mémoire|memoire|dissertation|exposé|expose|université|universite|fac|école|ecole|prof|professeur|matière|matiere|chapitre|fiche)\b/i;
+const COURSE_HINTS = /(cours|classe|\btd\b|\btp\b|\bcm\b|devoir|\bdm\b|partiel|examen|exam|révision|revision|rendre|mémoire|memoire|dissertation|exposé|expose|université|universite|\bfac\b|école|ecole|professeur|matière|matiere|chapitre|fiche)/i;
 
 export const taskContext = (task = {}) => {
   const explicit = String(task.context ?? task.kind ?? task.category ?? "").toLowerCase();
