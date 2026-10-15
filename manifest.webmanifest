@@ -26,6 +26,11 @@
       "url": "./#/tasks"
     },
     {
+      "name": "Projets",
+      "short_name": "Projets",
+      "url": "./#/projects"
+    },
+    {
       "name": "Journée",
       "short_name": "Journée",
       "url": "./#/day"
