@@ -1,9 +1,11 @@
 import { features as baseFeatures } from "../features.js";
 import { advancedFeatures } from "../features-advanced.js";
+import { featureOverrides } from "../features-overrides.js";
 
 export const features = Object.freeze({
   ...baseFeatures,
-  ...advancedFeatures
+  ...advancedFeatures,
+  ...featureOverrides
 });
 
 const clone = (value) => {
