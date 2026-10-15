@@ -1,3 +1,6 @@
+import { dailyProgress } from "./rewards.js";
+import { renderItemInspectorModal } from "../features-item-inspector.js";
+import { captureContinuity, restoreContinuity } from "./continuity.js";
 import { entries } from "../core/registry.js";
 import {
   featurePages,
@@ -114,7 +117,32 @@ const renderGameHud = ({ root, state, route }) => {
   quest.className = "global-game-hud__quest";
   quest.innerHTML = `<strong>${copy.quest}</strong><span>${copy.questHint}</span>`;
 
-  hud.append(identity, levelBox, progressBox, quest);
+  const daily = dailyProgress(featureState(state, "game"));
+  const dailyBox = document.createElement("div");
+  dailyBox.className = "daily-progress";
+  const label = document.createElement("label");
+  label.textContent = "Mon petit cap du jour ";
+  const goal = document.createElement("select");
+  goal.dataset.action = "game.goal";
+  goal.setAttribute("aria-label", "Objectif de tâches du jour");
+  for (const count of [1, 3, 5]) {
+    const option = document.createElement("option");
+    option.value = count;
+    option.textContent = `${count} tâche${count > 1 ? "s" : ""}`;
+    option.selected = count === daily.goal;
+    goal.append(option);
+  }
+  label.append(goal);
+  const dailyTrack = document.createElement("progress");
+  dailyTrack.max = daily.goal;
+  dailyTrack.value = Math.min(daily.goal, daily.completed);
+  dailyTrack.setAttribute("aria-label", `${daily.completed} tâches terminées sur un objectif de ${daily.goal}`);
+  const dailyCopy = document.createElement("span");
+  dailyCopy.textContent = daily.completed >= daily.goal
+    ? "Cap atteint. Profite de ton avancée, la pause est méritée."
+    : `${daily.completed}/${daily.goal} · Chaque petite avancée compte, à ton rythme.`;
+  dailyBox.append(label, dailyTrack, dailyCopy);
+  hud.append(identity, levelBox, progressBox, quest, dailyBox);
   root.append(hud);
 };
 
@@ -186,12 +214,8 @@ const renderPageHeader = ({ root, activePage }) => {
   root.append(header);
 };
 
-const syncActiveNavigation = (root) => {
-  const active = root.querySelector(".feature-nav__link.is-active");
-  active?.scrollIntoView?.({ block: "nearest", inline: "center" });
-};
-
-export const renderFeatures = ({ root, registry, state, dispatch, route = "" }) => {
+export const renderFeatures = ({ root, registry, state, dispatch, route = "", event }) => {
+  const continuity = captureContinuity(root, route, event);
   clear(root);
   renderNavigation({ root, registry, state, route });
   renderGameHud({ root, state, route });
@@ -204,7 +228,7 @@ export const renderFeatures = ({ root, registry, state, dispatch, route = "" }) 
     notFound.className = "empty-state";
     notFound.innerHTML = "<h2>Page introuvable</h2><p>Cette route ne correspond à aucune catégorie ou feature.</p><p><a href=\"#\">Retour à l’accueil</a></p>";
     root.append(notFound);
-    syncActiveNavigation(root);
+    restoreContinuity(root, continuity, dispatch);
     return;
   }
 
@@ -249,5 +273,7 @@ export const renderFeatures = ({ root, registry, state, dispatch, route = "" }) 
     root.append(empty);
   }
 
-  syncActiveNavigation(root);
+  const modal = renderItemInspectorModal(state);
+  if (modal) root.append(modal);
+  restoreContinuity(root, continuity, dispatch);
 };

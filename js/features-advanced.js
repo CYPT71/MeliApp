@@ -491,6 +491,8 @@ export const advancedFeatures = {
             planner: { current: null, candidates: [], index: 0, computedAt: null },
             flow: { active: false, mode: "free", taskId: null, startedAt: null, endedAt: null, suggestedMinutes: null },
             game: { xp: 0, level: 1, lastGain: 0 },
+            guided: { sessions: {}, activeTaskId: null },
+            taskWorkspace: { ...state.features?.taskWorkspace, draftProjectId: null, expandedId: null, editingId: null },
             achievements: { unlocked: [] }
           }
         };

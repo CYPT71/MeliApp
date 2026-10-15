@@ -189,12 +189,12 @@ export const calendarViewFeature = {
         }
         root.append(strip);
       }
-      const scroll = node("div", { className: "calendar-scroll", tabindex: "0", "aria-label": "Calendrier horaire, défilement horizontal et vertical" });
+      const scroll = node("div", { className: "calendar-scroll", role: "region", tabindex: "0", "aria-label": "Calendrier horaire, défilement horizontal et vertical" });
       const grid = node("div", { className: "calendar-grid", style: `--calendar-days:${days.length}` });
       grid.append(node("div", { className: "calendar-corner", text: "Heures" }));
       for (const day of days) grid.append(node("div", {
         className: `calendar-day-heading${dateKey(day) === dateKey(new Date()) ? " is-today" : ""}`,
-        "aria-label": longDate(day)
+        role: "group", "aria-label": longDate(day)
       }, [
         node("span", { className: "calendar-heading-full", text: new Intl.DateTimeFormat("fr-FR", { weekday: "short", day: "numeric", month: "short" }).format(day) }),
         node("span", { className: "calendar-heading-compact", "aria-hidden": "true" }, [
@@ -206,7 +206,7 @@ export const calendarViewFeature = {
       for (const day of days) grid.append(node("div", { className: "calendar-all-day" }, eventsForDay(events, day).filter(({ event }) => event.allDay).map((segment) => eventNode(segment, false, renderEventActions))));
       grid.append(node("div", { className: "calendar-hours", "aria-hidden": "true" }, Array.from({ length: 24 }, (_, hour) => node("span", { text: `${String(hour).padStart(2, "0")}:00`, style: `top:${hour / 24 * 100}%` }))));
       for (const day of days) {
-        const column = node("div", { className: `calendar-day${dateKey(day) === dateKey(new Date()) ? " is-today" : ""}`, "aria-label": longDate(day) });
+        const column = node("div", { className: `calendar-day${dateKey(day) === dateKey(new Date()) ? " is-today" : ""}`, role: "group", "aria-label": longDate(day) });
         for (const segment of layoutEvents(eventsForDay(events, day))) column.append(eventNode(segment, true, renderEventActions));
         if (dateKey(day) === dateKey(new Date())) { const now = new Date(); column.append(node("div", { className: "calendar-now", style: `top:${(now.getHours() * 60 + now.getMinutes()) / 1440 * 100}%`, "aria-hidden": "true" })); }
         grid.append(column);

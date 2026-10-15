@@ -1,4 +1,5 @@
-import { cp, mkdir, rm, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { cp, mkdir, rm, writeFile, readFile, readdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import path from "node:path";
 
@@ -33,3 +34,20 @@ if (microsoftClientId || spotifyClientId) {
 console.log(`Build MeliApp prêt dans ${path.relative(root, out)}/`);
 if (!microsoftClientId) console.log("Info: MS_CLIENTID absent, Outlook restera non configuré dans ce build.");
 if (!spotifyClientId) console.log("Info: SPOTIFY_CLIENTID absent, Spotify restera non configuré dans ce build.");
+
+// Fingerprint the deployed bytes, including public configuration and the worker.
+const fingerprint = createHash("sha256");
+const hashTree = async directory => {
+  for (const entry of (await readdir(directory, { withFileTypes: true })).sort((a, b) => a.name.localeCompare(b.name))) {
+    const file = path.join(directory, entry.name);
+    if (entry.isDirectory()) await hashTree(file);
+    else { fingerprint.update(path.relative(out, file)); fingerprint.update(await readFile(file)); }
+  }
+};
+await hashTree(out);
+const version = fingerprint.digest("hex").slice(0, 20);
+const workerPath = path.join(out, "service-worker.js");
+await writeFile(workerPath, (await readFile(workerPath, "utf8")).replace(/const CACHE = "[^"]+";/, `const CACHE = "meliapp-shell-${version}";`));
+const htmlPath = path.join(out, "index.html");
+await writeFile(htmlPath, (await readFile(htmlPath, "utf8")).replace("<head>", `<head>\n  <meta name="app-version" content="${version}">`));
+await writeFile(path.join(out, "version.json"), JSON.stringify({ version, commit: process.env.GITHUB_SHA || null }) + "\n");

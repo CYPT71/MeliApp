@@ -1,3 +1,6 @@
+import { createDraftService, DRAFT_FORMS } from "./services/drafts.js";
+import { createUpdateService } from "./services/updates.js";
+import { createRewardFeedback } from "./ui/rewards.js";
 import { createApp } from "./core/app.js";
 import { EVENTS } from "./core/events.js";
 import { features } from "./core/registry.js";
@@ -9,27 +12,52 @@ import { renderFeatures } from "./ui/render.js";
 
 const root = document.querySelector("#app");
 const services = createServices();
-const persisted = await services.storage.load().catch(() => null);
+const saveStatus = document.querySelector("#storage-status");
+const showStorageError = () => {
+  saveStatus.textContent = "Sauvegarde indisponible. Garde cet onglet ouvert et exporte tes données depuis Données.";
+  saveStatus.classList.add("is-error");
+};
+let loadError;
+const drafts = createDraftService({ storage: services.storage, onError: showStorageError });
+let persisted;
+try { persisted = await services.storage.load(); await drafts.load(); }
+catch (error) { loadError = error; showStorageError(); }
+const reward = createRewardFeedback(document.body);
 const initialState = mergePersistedState(createInitialState(features), persisted);
 
 let app;
 let route = routeFromHash(window.location.hash);
 
-const rerender = (state) => renderFeatures({
-  root,
-  registry: features,
-  state,
-  dispatch: app.dispatch,
-  route
-});
+const rerender = (state, change = {}) => {
+  renderFeatures({ root, registry: features, state, dispatch: app.dispatch, route, event: change.event });
+  drafts.restore(root, route);
+  reward(state);
+};
 
 app = createApp({
   registry: features,
   initialState,
   services,
-  persist: (state) => services.storage.save(state),
+  persist: async (state, change = {}) => {
+    // A failed read must never be replaced by an empty initial state.
+    if (loadError) throw loadError;
+    await services.storage.save(state);
+    await drafts.clearFor(change.event, route, change.payload);
+  },
+  onPersistenceError: showStorageError,
+  onPersisted: () => {
+    saveStatus.textContent = "Données sauvegardées sur cet appareil · IndexedDB";
+    saveStatus.classList.remove("is-error");
+  },
   onChange: rerender
 });
+
+const rememberDraft = event => {
+  if (loadError) return;
+  drafts.remember(event.target.closest?.('form'), route)?.catch(showStorageError);
+};
+root.addEventListener('input', rememberDraft);
+root.addEventListener('change', rememberDraft);
 
 bindFeatureActions({
   root,
@@ -51,4 +79,12 @@ document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") app.dispatch(EVENTS.APP_RESUME);
 });
 
-if ("serviceWorker" in navigator) navigator.serviceWorker.register("./service-worker.js").catch(console.error);
+const updates = createUpdateService({
+  beforeReload: async () => {
+    if (loadError) throw loadError;
+    for (const form of root.querySelectorAll(DRAFT_FORMS)) await drafts.remember(form, route);
+    await app.flush();
+    await drafts.flush();
+  }
+});
+updates.start();

@@ -2,13 +2,7 @@ import { calendarTaskFeatures } from "./features-calendar-tasks.js";
 import { projectFeatures } from "./features-projects.js";
 import { schedulePreferenceFeatures } from "./features-schedule-preferences.js";
 import { eventKey } from "./domain/calendar-classification.js";
-import { renderItemInspectorModal } from "./features-item-inspector.js";
-
-const appendModal = (root, state) => {
-  const modal = renderItemInspectorModal(state);
-  if (modal) root.append(modal);
-  return root;
-};
+import { taskContextFeatures } from "./features-task-context.js";
 
 const eventForCard = (state, card) => {
   const title = card.querySelector("summary strong")?.textContent?.trim();
@@ -27,6 +21,32 @@ const taskRender = projectFeatures.taskWorkspace.ui.render;
 const preferenceRender = schedulePreferenceFeatures.schedulePreferences.ui.render;
 
 export const itemPopupOverrides = {
+  tasks: {
+    ...taskContextFeatures.tasks,
+    ui: {
+      ...taskContextFeatures.tasks.ui,
+      render: (context) => {
+        const root = taskContextFeatures.tasks.ui.render(context);
+        for (const card of root.querySelectorAll('[data-task-id]')) {
+          const title = card.querySelector('.task-title-button');
+          if (title) {
+            title.dataset.action = 'item-inspector.open-task';
+            title.dataset.id = card.dataset.taskId;
+            title.setAttribute('aria-haspopup', 'dialog');
+            title.removeAttribute('aria-expanded');
+            const details = document.createElement('button');
+            details.type = 'button';
+            details.dataset.action = 'tasks.toggle-details';
+            details.dataset.id = card.dataset.taskId;
+            details.textContent = 'Détails';
+            details.setAttribute('aria-expanded', context.state.features?.taskWorkspace?.expandedId === card.dataset.taskId ? 'true' : 'false');
+            card.append(details);
+          }
+        }
+        return root;
+      }
+    }
+  },
   calendarView: {
     ...calendarTaskFeatures.calendarView,
     ui: {
@@ -40,7 +60,7 @@ export const itemPopupOverrides = {
           card.dataset.key = eventKey(event);
           card.classList.add("is-clickable");
         }
-        return appendModal(root, context.state);
+        return root;
       }
     }
   },
@@ -61,7 +81,7 @@ export const itemPopupOverrides = {
           }
           card.classList.add("is-popup-enabled");
         }
-        return appendModal(root, context.state);
+        return root;
       }
     }
   },
@@ -84,7 +104,7 @@ export const itemPopupOverrides = {
           }
           row.classList.add("is-clickable");
         }
-        return appendModal(root, context.state);
+        return root;
       }
     }
   }

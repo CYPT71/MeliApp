@@ -30,14 +30,14 @@ export const runFeatures = async ({ event, payload, registry, context }) => {
   return current;
 };
 
-export const createApp = ({ registry, initialState, services = {}, persist, onChange }) => {
+export const createApp = ({ registry, initialState, services = {}, persist, onChange, onPersistenceError, onPersisted }) => {
   let state = initialState;
   let queue = Promise.resolve();
 
   const getState = () => state;
 
   const dispatch = (event, payload = undefined) => {
-    queue = queue.then(async () => {
+    queue = queue.catch(() => {}).then(async () => {
       const result = await runFeatures({
         event,
         payload,
@@ -46,7 +46,10 @@ export const createApp = ({ registry, initialState, services = {}, persist, onCh
       });
 
       state = result.state;
-      if (persist) await persist(state);
+      if (persist) {
+        try { await persist(state, { event, payload }); onPersisted?.(); }
+        catch (error) { onPersistenceError?.(error); }
+      }
       onChange?.(state, { event, payload });
       return state;
     });
@@ -54,5 +57,6 @@ export const createApp = ({ registry, initialState, services = {}, persist, onCh
     return queue;
   };
 
-  return { dispatch, getState };
+  const flush = async () => { await queue; if (persist) await persist(state); };
+  return { dispatch, getState, flush };
 };

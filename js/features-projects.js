@@ -127,7 +127,7 @@ const projectCategoryPicker = (state, project) => {
 
 const projectForm = (state, project = null) => {
   const editing = Boolean(project);
-  return el("form", { className: "project-form stack", "data-project-id": project?.id ?? "" }, [
+  return el("form", { className: "project-form stack", "data-submit-action": editing ? "projects.update" : "projects.create", "data-project-id": project?.id ?? "" }, [
     el("div", { className: "project-form-heading" }, [
       el("div", {}, [
         el("h3", { text: editing ? "Modifier le projet" : "Nouveau projet" }),
@@ -157,7 +157,7 @@ const projectForm = (state, project = null) => {
     ]),
     projectCategoryPicker(state, project),
     button(editing ? "Enregistrer les modifications" : "Créer le projet", editing ? "projects.update" : "projects.create", {
-      className: "primary",
+      className: "primary", type: "submit",
       "data-id": project?.id ?? ""
     })
   ]);
@@ -264,7 +264,7 @@ const projectRender = ({ state }) => {
   const toolbar = el("div", { className: "project-toolbar" }, [
     el("input", { type: "search", placeholder: "Rechercher un projet…", value: current.query ?? "", "data-action": "projects.filter-query" }),
     (() => {
-      const select = el("select", { "data-action": "projects.filter-status" });
+      const select = el("select", { "data-action": "projects.filter-status", "aria-label": "Filtrer les projets par état" });
       for (const option of [
         ["active", "Actifs"], ["planned", "À préparer"], ["on_hold", "En pause"], ["completed", "Terminés"], ["all", "Tous"]
       ]) select.append(el("option", { value: option[0], text: option[1], selected: current.statusFilter === option[0] }));
@@ -353,9 +353,9 @@ export const projectFeatures = {
         "projects.reopen": ({ target, dispatch }) => dispatch("project:reopen", { id: target.dataset.id }),
         "projects.filter-query": ({ event, target, dispatch }) => event.type === "change" ? dispatch("project:filter", { key: "query", value: target.value }) : undefined,
         "projects.filter-status": ({ event, target, dispatch }) => event.type === "change" ? dispatch("project:filter", { key: "statusFilter", value: target.value }) : undefined,
-        "projects.add-task": ({ target }) => {
+        "projects.add-task": async ({ target, dispatch }) => {
+          await dispatch("tasks:project-draft", { id: target.dataset.id });
           location.hash = "#/tasks";
-          sessionStorage.setItem("meliapp:new-task-project", target.dataset.id ?? "");
         }
       }
     }

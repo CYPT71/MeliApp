@@ -101,6 +101,7 @@ const rankedCandidates = (state, now = Date.now()) => {
 const normalizeTaskPayload = (payload = {}) => ({
   id: payload.id ?? uid("task"),
   title: String(payload.title ?? "").trim(),
+  projectId: payload.projectId || null,
   deadline: payload.deadline || null,
   estimateMinutes: Math.max(5, asNumber(payload.estimateMinutes, 25)),
   difficulty: Math.min(5, Math.max(1, asNumber(payload.difficulty, 3))),
@@ -456,19 +457,31 @@ export const features = {
 
   game: {
     description: "Progression",
-    state: { xp: 0, level: 1, lastGain: 0 },
-    when: ["session:start", "session:completed", "task:completed"],
+    state: { xp: 0, level: 1, lastGain: 0, rewardedTaskIds: [], completedAt: {}, dailyGoal: 3 },
+    when: ["app:start", "game:goal", "session:start", "session:completed", "task:completed"],
     run: ({ state, event, payload }) => {
       const current = featureState(state, "game");
+      const rewarded = new Set(current.rewardedTaskIds ?? []);
+      const completedAt = { ...(current.completedAt ?? {}) };
+      if (event === "app:start") {
+        for (const task of taskItems(state)) if (task.status === "completed") rewarded.add(task.id);
+        return setFeatureState(state, "game", { ...current, rewardedTaskIds: [...rewarded] });
+      }
+      if (event === "game:goal") return setFeatureState(state, "game", { ...current, dailyGoal: [1, 3, 5].includes(Number(payload?.goal)) ? Number(payload.goal) : 3 });
       let gain = event === "session:start" ? 5 : event === "session:completed" ? 15 : 0;
       if (event === "task:completed") {
-        const task = taskItems(state).find((item) => item.id === payload?.id);
-        if (task) gain += xpForTask({ minutes: task.estimateMinutes, difficulty: task.difficulty, importance: task.importance, started: task.progress > 0 });
+        const task = taskItems(state).find(item => item.id === payload?.id);
+        if (task && !rewarded.has(task.id)) {
+          gain += xpForTask({ minutes: task.estimateMinutes, difficulty: task.difficulty, importance: task.importance, started: task.progress > 0 });
+          rewarded.add(task.id);
+          completedAt[task.id] = new Date().toISOString();
+        }
       }
-      const xp = current.xp + gain;
-      return setFeatureState(state, "game", { xp, level: levelFromXp(xp), lastGain: gain });
+      const xp = Number(current.xp ?? 0) + gain;
+      return setFeatureState(state, "game", { ...current, xp, level: levelFromXp(xp), lastGain: gain, rewardedTaskIds: [...rewarded], completedAt });
     },
     ui: {
+      actions: { "game.goal": ({ event, target, dispatch }) => event.type === "change" ? dispatch("game:goal", { goal: target.value }) : undefined },
       zone: "main",
       order: 30,
       render: ({ state }) => {
