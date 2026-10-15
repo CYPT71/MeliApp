@@ -41,12 +41,14 @@ export const consumePkceCallback = async ({ tokenUrl, clientId, storageKey, extr
   const code = url.searchParams.get("code");
   const returnedState = url.searchParams.get("state");
   const error = url.searchParams.get("error");
-  if (error) throw new Error(url.searchParams.get("error_description") ?? error);
-  if (!code) return null;
-
   const verifier = sessionStorage.getItem(`${storageKey}:verifier`);
   const expectedState = sessionStorage.getItem(`${storageKey}:state`);
-  if (!verifier || !expectedState || returnedState !== expectedState) throw new Error("État OAuth invalide");
+
+  if (!code && !error) return null;
+  if (!verifier || !expectedState) return null;
+  if (returnedState !== expectedState) return null;
+  if (error) throw new Error(url.searchParams.get("error_description") ?? error);
+  if (!clientId) throw new Error("Client ID non configuré");
 
   const body = new URLSearchParams({
     client_id: clientId,
