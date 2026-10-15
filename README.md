@@ -1,171 +1,116 @@
 # MeliApp / FlowQuest
 
-PWA statique d’organisation adaptative et gamifiée, pensée pour réduire la friction de démarrage et adapter le planning à l’agenda Outlook, à l’énergie et au contexte réel de l’utilisateur.
+PWA statique d’organisation adaptative et gamifiée. Elle utilise Outlook comme contrainte d’agenda obligatoire, puis adapte la prochaine action aux tâches, aux deadlines, au niveau d’énergie et au mode de travail de l’utilisateur.
 
-Le projet est volontairement construit en **HTML/CSS/JavaScript pur** et déployable directement sur **GitHub Pages**. Pas de framework obligatoire, pas de backend obligatoire, pas de build runtime et pas d’APK.
+Le projet est en **HTML/CSS/JavaScript pur**, sans framework UI obligatoire, sans APK et sans backend obligatoire pour le MVP. Le déploiement cible est **GitHub Pages**.
 
-> Outlook est l’intégration obligatoire. Spotify et l’IA sont optionnels.
+## État actuel
 
-## État du projet
+Le noyau et les premières features produit sont implémentés.
 
-La fondation technique est en place :
+Features présentes dans le registre unique `js/features.js` :
 
-- moteur générique de features ;
-- registre unique `features` ;
-- état initial généré automatiquement depuis ce registre ;
-- dispatch d’événements générique ;
-- isolation des erreurs par feature ;
-- persistance IndexedDB ;
-- rendu et actions UI génériques ;
-- pages de feature générées automatiquement via le paramètre `page` ;
-- navigation automatique entre les pages ;
-- helpers fonctionnels de scoring, planning, XP et reducers ;
-- PWA minimale avec Service Worker ;
-- tests unitaires avec le runner natif de Node ;
-- pipeline CI/CD GitHub Actions vers GitHub Pages.
+- connexion Microsoft / Outlook ;
+- synchronisation agenda ;
+- page Agenda ;
+- énergie 1-10 ;
+- tâches ;
+- planner local ;
+- écran « Maintenant » ;
+- Libre / Flow / Focus / Pomodoro optionnel ;
+- XP et niveaux ;
+- Spotify optionnel ;
+- IA optionnelle avec fallback local ;
+- notifications ;
+- installation PWA.
 
-Les fonctionnalités métier elles-mêmes restent à ajouter dans l’objet `features` selon `SPECS.md` et `TODO.md`.
+Les intégrations Microsoft et Spotify nécessitent encore leurs **client IDs publics** dans `js/config.js` et la configuration des redirect URIs dans les consoles respectives. Voir [`TODO.md`](./TODO.md) pour l’état précis.
 
 ## Principe d’architecture
 
-Le core ne connaît pas Outlook, Spotify, l’énergie, le Pomodoro ou l’IA. Il connaît seulement un registre d’objets.
+Le métier vit dans un seul objet `features`.
 
 ```js
 export const features = {
-  energy: {
-    description: "Gestion de l’énergie",
-    state: {
-      value: null,
-      lowThreshold: 3
-    },
-    when: ["energy:set"],
-    enabled: () => true,
-    run: ({ state, payload }) => ({
+  example: {
+    description: "Exemple",
+    state: { count: 0 },
+    when: ["example:increment"],
+
+    run: ({ state }) => ({
       ...state,
       features: {
         ...state.features,
-        energy: {
-          ...state.features.energy,
-          value: payload.value
+        example: {
+          ...state.features.example,
+          count: state.features.example.count + 1
         }
       }
     }),
+
     ui: {
-      zone: "main",
+      order: 10,
       render: ({ state }) => {
         const button = document.createElement("button");
-        button.dataset.action = "energy.demo";
-        button.textContent = `Énergie : ${state.features.energy.value ?? "?"}`;
+        button.dataset.action = "example.increment";
+        button.textContent = state.features.example.count;
         return button;
       },
       actions: {
-        "energy.demo": ({ dispatch }) =>
-          dispatch("energy:set", { value: 5 })
+        "example.increment": ({ dispatch }) =>
+          dispatch("example:increment")
       }
     }
   }
 };
 ```
 
-Le moteur :
+Le core se contente principalement de :
 
-1. génère automatiquement `state.features` à partir des propriétés `state` du registre ;
-2. reçoit un événement ;
-3. itère sur les features abonnées à cet événement ;
-4. vérifie `enabled` ;
-5. exécute `run` ;
-6. enchaîne le nouvel état ;
-7. persiste ;
-8. relance le rendu ;
-9. branche les actions UI via délégation d’événements ;
-10. découvre automatiquement les features ayant une page et construit la navigation.
+1. générer l’état depuis `feature.state` ;
+2. recevoir un événement ;
+3. itérer sur les features abonnées ;
+4. exécuter `run` ;
+5. persister le nouvel état ;
+6. rendre les features visibles ;
+7. déléguer les actions `data-action`.
 
-Ajouter une feature ne doit donc pas demander une modification de `main.js`, du runner, du renderer ou du routeur.
+Le core ne contient donc pas de branchements métier du genre `if (spotify)` ou `if (energy)`.
 
-## Une feature peut avoir sa propre page
+## Pages déclaratives
 
-Une feature devient une page avec **un seul paramètre dans l’objet**.
-
-Version minimale :
+Une feature obtient sa propre page avec un paramètre :
 
 ```js
-export const features = {
-  tasks: {
-    description: "Mes tâches",
-    page: true,
-    ui: {
-      render: ({ state }) => {
-        const node = document.createElement("div");
-        node.textContent = `${state.tasks.length} tâche(s)`;
-        return node;
-      }
-    }
-  }
-};
+page: true
 ```
 
-Le core crée automatiquement :
+Cela crée automatiquement une route `#/nomFeature`, une entrée de navigation et le titre.
 
-- la route `#/tasks` ;
-- l’entrée de navigation « Mes tâches » ;
-- le titre de la page ;
-- le rendu exclusif de cette feature sur sa route.
-
-Aucun fichier de route, aucun menu et aucun branchement dans `main.js` ne sont à créer.
-
-Pour personnaliser la page :
+Configuration avancée :
 
 ```js
-export const features = {
-  settings: {
-    description: "Réglages",
-
-    page: {
-      path: "preferences",
-      title: "Mes réglages",
-      icon: "⚙️",
-      nav: true,
-      order: 20
-    },
-
-    ui: {
-      render: () => document.createTextNode("Contenu de la page")
-    }
-  }
-};
+page: {
+  path: "preferences",
+  title: "Mes réglages",
+  icon: "⚙️",
+  nav: true,
+  order: 20
+}
 ```
 
-Cela produit la route :
+Aucun fichier de route ou menu spécifique n’est nécessaire.
 
-```text
-#/preferences
-```
-
-Paramètres disponibles :
-
-| Paramètre | Rôle | Défaut |
-|---|---|---|
-| `page: true` | active une page avec les valeurs automatiques | - |
-| `page.path` | chemin dans le hash | nom de la feature |
-| `page.title` | titre et label de navigation | `description` puis nom |
-| `page.icon` | préfixe visuel optionnel | aucun |
-| `page.nav` | affiche ou masque la page dans la navigation | `true` |
-| `page.order` | ordre dans le menu | `0` |
-
-Une feature **sans `page`** reste un widget de l’accueil. Une feature **avec `page`** est rendue uniquement sur sa page.
-
-Le routeur utilise des routes hash (`#/...`) afin de rester compatible avec GitHub Pages sans configuration serveur ni fallback exotique inventé à trois heures du matin.
-
-## Arborescence actuelle
+## Arborescence principale
 
 ```text
 .
-├── .github/
-│   └── workflows/
-│       └── ci-pages.yml
-├── css/
-│   └── base.css
+├── .github/workflows/ci-pages.yml
+├── css/base.css
 ├── js/
+│   ├── config.js
+│   ├── features.js
+│   ├── main.js
 │   ├── core/
 │   │   ├── app.js
 │   │   ├── events.js
@@ -178,223 +123,67 @@ Le routeur utilise des routes hash (`#/...`) afin de rester compatible avec GitH
 │   │   ├── scoring.js
 │   │   └── xp.js
 │   ├── services/
+│   │   ├── ai.js
+│   │   ├── index.js
+│   │   ├── install.js
 │   │   ├── notifications.js
+│   │   ├── oauth.js
+│   │   ├── outlook.js
+│   │   ├── spotify.js
 │   │   └── storage.js
-│   ├── ui/
-│   │   ├── actions.js
-│   │   └── render.js
-│   └── main.js
+│   └── ui/
+│       ├── actions.js
+│       └── render.js
 ├── tests/
-│   ├── core.test.js
-│   └── domain.test.js
 ├── index.html
 ├── manifest.webmanifest
 ├── service-worker.js
-├── package.json
 ├── SPECS.md
 └── TODO.md
 ```
 
-## Responsabilités des couches
+## Configuration
 
-### `js/core`
-
-Infrastructure agnostique du produit.
-
-- `registry.js` : contrat des features, validation, sélection par événement, actions UI.
-- `router.js` : découverte automatique des pages, routes hash, métadonnées de navigation.
-- `state.js` : état de base, état initial généré depuis le registre, merge du stockage local.
-- `app.js` : runner, queue de dispatch, persistance, isolation des erreurs.
-- `events.js` : noms d’événements partagés.
-
-### `js/domain`
-
-Fonctions pures et testables sans navigateur.
-
-- scoring de priorité ;
-- adéquation énergie ;
-- calcul des créneaux libres ;
-- découpage des tâches ;
-- sélection de prochaine action ;
-- XP / niveaux ;
-- reducers immuables.
-
-### `js/services`
-
-Effets de bord. C’est ici que doivent arriver les futurs clients Outlook, Spotify et IA.
-
-Le domaine ne doit pas appeler directement `fetch`, IndexedDB, Notification ou une API distante.
-
-### `js/ui`
-
-Infrastructure UI générique :
-
-- rendu des `feature.ui.render` ;
-- navigation des pages générée à partir de `feature.page` ;
-- délégation de `data-action` vers `feature.ui.actions`.
-
-Les features peuvent produire des `Node`/`DocumentFragment` sans que le renderer connaisse leur métier.
-
-## Contrat d’une feature
-
-Toutes les clés sont optionnelles selon le besoin métier :
+`js/config.js` ne doit contenir que des identifiants **publics** :
 
 ```js
-{
-  description: "Texte humain",
-
-  state: {
-    // état initial spécifique à la feature
-  },
-
-  page: true,
-  // ou :
-  // page: {
-  //   path: "route",
-  //   title: "Titre",
-  //   icon: "⚡",
-  //   nav: true,
-  //   order: 10
-  // },
-
-  when: [
-    "event:name"
-  ],
-
-  enabled: (state) => true,
-
-  run: async ({
-    state,
-    payload,
-    event,
-    services,
-    dispatch,
-    getState,
-    feature
-  }) => {
-    return state;
-  },
-
-  ui: {
-    zone: "main",
-    render: ({ state, dispatch, feature, route }) => document.createElement("div"),
-    actions: {
-      "feature.action": ({ event, target, state, dispatch }) => {}
-    }
-  }
-}
+export const config = {
+  microsoftClientId: "PUBLIC_CLIENT_ID",
+  microsoftTenant: "common",
+  spotifyClientId: "PUBLIC_CLIENT_ID"
+};
 ```
 
-`run` peut retourner soit un nouvel état, soit un contexte contenant `{ state: nouvelEtat }`.
+Ne jamais ajouter de `client_secret`, token utilisateur, mot de passe ou clé privée dans ce dépôt.
 
-Une exception dans une feature crée un diagnostic local et n’empêche pas les suivantes de s’exécuter.
+## Lancer en local
 
-## Programmation fonctionnelle
-
-Règles du projet :
-
-- état métier traité comme immuable ;
-- fonctions pures pour la logique métier ;
-- pas de classe nécessaire au domaine ;
-- pas de variable globale mutable pour les données métier ;
-- effets de bord derrière des services ;
-- composition de petites fonctions ;
-- `Date.now()` ou accès externes injectés/testés lorsque la déterminisation est importante ;
-- pas de logique métier spécifique dans `main.js`.
-
-## Lancer localement
-
-Comme les ES Modules navigateur ne fonctionnent pas correctement avec `file://`, servir le dossier avec n’importe quel serveur HTTP statique.
+Les ES Modules doivent être servis via HTTP :
 
 ```bash
 python3 -m http.server 8080
 ```
 
-Puis ouvrir `http://localhost:8080`.
+Puis ouvrir :
 
-Node n’est nécessaire que pour les tests et vérifications de CI.
+```text
+http://localhost:8080
+```
 
 ## Tests
-
-Aucune dépendance de test externe n’est requise.
 
 ```bash
 npm test
 npm run check
 ```
 
-Les tests couvrent notamment :
-
-- génération automatique de l’état depuis le registre ;
-- sélection des features par événement ;
-- ordre d’exécution et chaînage d’état ;
-- isolation des erreurs ;
-- persistance après dispatch ;
-- validation du contrat ;
-- création automatique d’une page avec `page: true` ;
-- métadonnées de page ;
-- découverte et ordre des pages ;
-- résolution des routes hash ;
-- visibilité accueil/page ;
-- urgence, énergie, scoring, créneaux, découpage, XP et reducers.
+Les tests couvrent le core fonctionnel, le routeur, le domaine, les tâches, l’énergie, le planner, Flow, l’XP, le fallback IA et la synchronisation Outlook avec service injecté.
 
 ## CI/CD
 
-Workflow : `.github/workflows/ci-pages.yml`.
-
-Sur Pull Request vers `main` :
-
-1. checkout ;
-2. Node 22 ;
-3. vérifications syntaxiques ;
-4. tests unitaires ;
-5. scan simple de secrets accidentellement commités.
-
-Sur push vers `main`, après succès de la CI : configuration et déploiement GitHub Pages.
-
-Le runtime de production reste uniquement HTML/CSS/JS statique.
-
-## PWA
-
-Le projet contient `manifest.webmanifest`, `service-worker.js`, un cache du shell applicatif et une stratégie réseau avec fallback cache.
-
-Le routeur est inclus dans le cache PWA afin que les pages de features restent navigables avec le shell déjà chargé hors connexion.
-
-## Stockage
-
-`createIndexedDbStorage()` sauvegarde l’état global dans IndexedDB.
-
-Un adapter mémoire est également fourni pour les tests ou environnements sans IndexedDB.
-
-## Sécurité
-
-Ne jamais commiter :
-
-- `client_secret` Microsoft ou Spotify ;
-- clé API IA appartenant au projet ;
-- token OAuth ;
-- clé privée ;
-- mot de passe.
-
-Une PWA GitHub Pages est un client public. Les intégrations OAuth doivent utiliser PKCE.
-
-## Développement d’une nouvelle feature
-
-La règle architecturale est volontairement stricte : **ajouter une fonctionnalité doit principalement consister à ajouter une entrée dans l’objet `features`.**
-
-Même chose pour les pages : **une feature obtient sa page en ajoutant `page: true` ou un objet `page`, sans créer une route manuellement.**
-
-Le test mental :
-
-> Est-ce que je dois modifier `main.js`, le runner, le renderer ou le routeur pour ajouter cette feature ou sa page ?
-
-Si oui, il faut vérifier si le contrat générique est réellement incomplet avant d’introduire du câblage métier dans le core.
+`.github/workflows/ci-pages.yml` exécute les vérifications syntaxiques, les tests et le scan simple de secrets. Sur `main`, le workflow prépare ensuite le déploiement GitHub Pages.
 
 ## Documentation
 
-- [`SPECS.md`](./SPECS.md) : cahier des charges et décisions d’architecture.
-- [`TODO.md`](./TODO.md) : backlog de développement.
-
-## Licence
-
-Aucune licence n’est encore définie dans le dépôt.
+- [`SPECS.md`](./SPECS.md) : cahier des charges.
+- [`TODO.md`](./TODO.md) : avancement réel et travail restant.
