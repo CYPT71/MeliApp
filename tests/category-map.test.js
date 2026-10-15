@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { featureCategories, applyFeatureCategories } from "../js/feature-categories.js";
 
 const expected = {
-  calendar: ["microsoftAuth", "outlookSync", "calendarView", "manualSync"],
+  calendar: ["microsoftAuth", "calendarSources", "outlookSync", "calendarView", "manualSync"],
   tasks: ["taskWorkspace", "tasks", "taskDecomposition", "taskEditor"],
   projects: ["projects"],
   mindmap: ["taskMindmap"],
