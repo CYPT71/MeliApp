@@ -4,13 +4,13 @@ import assert from "node:assert/strict";
 import { featureCategories, applyFeatureCategories } from "../js/feature-categories.js";
 
 const expected = {
-  calendar: ["microsoftAuth", "outlookSync", "calendarView", "manualSync"],
+  calendar: ["outlookSync", "calendarView", "manualSync"],
   tasks: ["taskWorkspace", "tasks", "taskDecomposition", "taskEditor"],
   projects: ["projects"],
   mindmap: ["taskMindmap"],
   day: ["adaptiveSchedule", "flow"],
   progress: ["game", "stats", "achievements"],
-  settings: ["localAi", "schedulePreferences", "quickSearch", "spotify", "ai", "settings", "notifications", "install", "dataManagement", "diagnostics"]
+  settings: ["microsoftAuth", "localAi", "schedulePreferences", "quickSearch", "spotify", "ai", "settings", "notifications", "install", "dataManagement", "diagnostics"]
 };
 
 test("production categories keep coherent features together", () => {
