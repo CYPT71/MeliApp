@@ -1,4 +1,4 @@
-const CACHE = "meliapp-shell-v36";
+const CACHE = "meliapp-shell-v37";
 const SHELL = [
   "./",
   "./index.html",
@@ -9,6 +9,9 @@ const SHELL = [
   "./css/tasks.css",
   "./css/guided.css",
   "./js/features-guided.js",
+  "./js/features-metafocus.js",
+  "./js/domain/metafocus.js",
+  "./js/services/metafocus.js",
   "./css/projects.css",
   "./css/settings.css",
   "./css/item-inspector.css",

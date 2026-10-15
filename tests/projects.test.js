@@ -73,3 +73,19 @@ test("project completion and reopen are explicit states", () => {
   const reopened = projectFeatures.projects.run({ state: completed, event: "project:reopen", payload: { id: "p1" } });
   assert.equal(reopened.features.projects.items[0].status, "active");
 });
+
+test("existing tasks attach with descendants and retain metadata", () => {
+  const initial = state();
+  initial.features.projects.items = [{ id: "p1" }, { id: "p2" }];
+  initial.features.tasks.items[0].projectId = "p1";
+  initial.features.tasks.items[0].categoryColors = [{ name: "Travail", color: "#123456" }];
+  initial.features.tasks.items.push({ id: "child", parentTaskId: "t1", projectId: "p1" }, { id: "leaf", parentTaskId: "child" }, { id: "other" });
+  const next = projectFeatures.projects.run({ state: initial, event: "project:attach-task", payload: { projectId: "p2", taskId: "t1" } });
+  assert.deepEqual(next.features.tasks.items.map((task) => task.projectId), ["p2", "p2", "p2", undefined]);
+  assert.deepEqual(next.features.tasks.items[0].categoryColors, initial.features.tasks.items[0].categoryColors);
+  assert.equal(next.features.tasks.items[0].progress, 0.5);
+  assert.equal(initial.features.tasks.items[0].projectId, "p1");
+  for (const payload of [{ projectId: "missing", taskId: "t1" }, { projectId: "p2", taskId: "missing" }, { projectId: "p2", taskId: "child" }]) {
+    assert.equal(projectFeatures.projects.run({ state: initial, event: "project:attach-task", payload }), initial);
+  }
+});

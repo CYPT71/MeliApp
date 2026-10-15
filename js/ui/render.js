@@ -76,6 +76,7 @@ const gameSnapshot = (state) => {
 };
 
 const renderGameHud = ({ root, state, route }) => {
+  if (route === "step-by-step") return;
   const { xp, level, streak, levelEnd, progress } = gameSnapshot(state);
   const copy = pageCopy[route] ?? {
     quest: "Mission en cours",

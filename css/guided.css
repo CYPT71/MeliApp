@@ -19,3 +19,12 @@
 
 .guide-picker { padding: 1rem; border: 1px solid #ffffff26; border-radius: 12px; background: #ffffff04; }
 .guide-picker select { width: 100%; min-width: 0; }
+
+.metafocus-intro { color: #bfc8d7; font-size: .95rem; }
+.metafocus-settings, .metafocus-reflection { padding: 1rem; border: 1px solid #ffffff26; border-radius: 12px; }
+.metafocus-settings summary, .metafocus-reflection summary { cursor: pointer; min-height: 36px; }
+.metafocus-settings input, .metafocus-settings textarea { box-sizing: border-box; max-width: 100%; }
+.metafocus-option { display: flex; align-items: center; gap: .6rem; min-height: 44px; }
+.metafocus-option input { width: 20px; height: 20px; flex: 0 0 auto; }
+.metafocus-prompt { border: 1px solid #8fc7ff66; border-radius: 12px; padding: 1rem; background: #8fc7ff0d; }
+.metafocus-voice-status { margin: 0; }
