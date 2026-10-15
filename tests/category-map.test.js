@@ -5,7 +5,8 @@ import { featureCategories, applyFeatureCategories } from "../js/feature-categor
 
 const expected = {
   calendar: ["microsoftAuth", "outlookSync", "calendarView", "manualSync"],
-  day: ["tasks", "taskEditor", "projects", "flow"],
+  tasks: ["taskWorkspace", "tasks", "taskDecomposition", "taskMindmap", "taskEditor", "projects"],
+  day: ["flow"],
   progress: ["game", "stats", "achievements"],
   settings: ["spotify", "ai", "settings", "notifications", "install", "dataManagement", "diagnostics"]
 };
@@ -16,9 +17,11 @@ test("production categories keep coherent features together", () => {
   }
 });
 
-test("navigation is intentionally limited to four product categories", () => {
-  assert.equal(Object.keys(featureCategories).length, 4);
-  assert.deepEqual(Object.keys(featureCategories), ["calendar", "day", "progress", "settings"]);
+test("tasks have their own top-level navigation tab", () => {
+  assert.equal(Object.keys(featureCategories).length, 5);
+  assert.deepEqual(Object.keys(featureCategories), ["calendar", "tasks", "day", "progress", "settings"]);
+  assert.equal(featureCategories.tasks.path, "tasks");
+  assert.equal(featureCategories.tasks.title, "Tâches");
 });
 
 test("category routes are unique", () => {

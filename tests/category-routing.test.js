@@ -9,20 +9,20 @@ test("production registry exposes the expected grouped navigation", () => {
   const byPath = Object.fromEntries(pages.map((entry) => [entry.page.path, entry]));
 
   assert.deepEqual(byPath.calendar.names, ["microsoftAuth", "outlookSync", "calendarView", "manualSync"]);
-  assert.ok(byPath.day.names.includes("tasks"));
-  assert.ok(byPath.day.names.includes("projects"));
-  assert.ok(byPath.day.names.includes("flow"));
+  assert.ok(byPath.tasks.names.includes("taskWorkspace"));
+  assert.ok(byPath.tasks.names.includes("tasks"));
+  assert.ok(byPath.tasks.names.includes("taskMindmap"));
+  assert.ok(byPath.tasks.names.includes("projects"));
+  assert.deepEqual(byPath.day.names, ["flow"]);
   assert.ok(byPath.progress.names.includes("game"));
   assert.ok(byPath.settings.names.includes("spotify"));
   assert.ok(byPath.settings.names.includes("ai"));
-  assert.ok(byPath.settings.names.includes("settings"));
-  assert.ok(byPath.settings.names.includes("notifications"));
 });
 
-test("a grouped route resolves all members, not only its first feature", () => {
-  const page = findPageByRoute(features, "day");
+test("tasks route resolves list, mindmap and project members", () => {
+  const page = findPageByRoute(features, "tasks");
   assert.ok(page);
-  assert.ok(page.names.length >= 3);
   assert.ok(page.names.includes("tasks"));
-  assert.ok(page.names.includes("flow"));
+  assert.ok(page.names.includes("taskMindmap"));
+  assert.ok(page.names.includes("projects"));
 });
