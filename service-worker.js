@@ -1,19 +1,20 @@
-const CACHE = "meliapp-shell-v27";
+const CACHE = "meliapp-shell-v28";
 const SHELL = [
   "./",
   "./index.html",
   "./css/base.css",
   "./css/calendar.css",
+  "./css/energy.css",
+  "./css/connections.css",
+  "./css/tasks.css",
+  "./css/projects.css",
+  "./css/settings.css",
   "./js/features-calendar.js",
   "./js/domain/calendar.js",
   "./js/domain/outlook-categories.js",
   "./js/domain/calendar-classification.js",
   "./js/domain/adaptive-planning.js",
   "./js/domain/weekly-planning.js",
-  "./css/energy.css",
-  "./css/connections.css",
-  "./css/tasks.css",
-  "./css/projects.css",
   "./js/main.js",
   "./js/features.js",
   "./js/features-advanced.js",
@@ -23,6 +24,8 @@ const SHELL = [
   "./js/features-spotify-friendly.js",
   "./js/features-data-p2p.js",
   "./js/features-calendar-sources.js",
+  "./js/features-schedule-preferences.js",
+  "./js/features-schedule-behavior.js",
   "./js/features-adaptive-schedule.js",
   "./js/features-task-context.js",
   "./js/features-calendar-tasks.js",
@@ -58,22 +61,16 @@ self.addEventListener("install", (event) => {
 });
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key)))
-    )
-  );
+  event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key)))));
 });
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
-  event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        const copy = response.clone();
-        caches.open(CACHE).then((cache) => cache.put(event.request, copy));
-        return response;
-      })
-      .catch(() => caches.match(event.request).then((cached) => cached ?? caches.match("./index.html")))
-  );
+  event.respondWith(fetch(event.request)
+    .then((response) => {
+      const copy = response.clone();
+      caches.open(CACHE).then((cache) => cache.put(event.request, copy));
+      return response;
+    })
+    .catch(() => caches.match(event.request).then((cached) => cached ?? caches.match("./index.html"))));
 });
