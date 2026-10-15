@@ -1,4 +1,11 @@
 import { features as baseFeatures } from "./features.js";
+import {
+  ENERGY_MOODS,
+  energyGuidance,
+  energyMood,
+  energyPercentToScore,
+  energyScoreToPercent
+} from "./domain/energy.js";
 
 const energyState = (state) => state.features?.energy ?? { value: 5, lowThreshold: 3 };
 const featureState = (state, name, fallback = {}) => state.features?.[name] ?? fallback;
@@ -97,6 +104,56 @@ const providerCard = ({ id, label, current }) => {
   return card;
 };
 
+const energyGauge = (score) => {
+  const percent = energyScoreToPercent(score);
+  const mood = energyMood(percent);
+  const root = node("div", { className: "energy-gauge stack", style: `--energy:${percent}%` });
+  const faces = node("div", { className: "energy-gauge__faces", "aria-hidden": "true" });
+  for (const item of ENERGY_MOODS) {
+    faces.append(node("span", {
+      className: `energy-gauge__face${item === mood ? " is-current" : ""}`,
+      text: item.emoji,
+      title: item.label
+    }));
+  }
+
+  const slider = node("input", {
+    className: "energy-gauge__slider",
+    type: "range",
+    min: 0,
+    max: 100,
+    step: 1,
+    value: percent,
+    "data-action": "energy.set-percent",
+    "aria-label": "Niveau d’énergie de 0 à 100",
+    "aria-valuetext": `${percent} sur 100, ${mood.label}`
+  });
+
+  root.append(
+    node("div", { className: "row row--between energy-gauge__header" }, [
+      node("strong", { text: "⚡ Énergie" }),
+      node("strong", { className: "energy-gauge__value", text: `${percent}/100` })
+    ]),
+    faces,
+    node("div", { className: "energy-gauge__track-wrap" }, [slider]),
+    node("div", { className: "energy-gauge__scale", "aria-hidden": "true" }, [
+      node("span", { text: "0" }),
+      node("span", { text: "20" }),
+      node("span", { text: "40" }),
+      node("span", { text: "60" }),
+      node("span", { text: "80" }),
+      node("span", { text: "100" })
+    ]),
+    node("div", { className: "row row--between" }, [
+      node("span", { className: "badge energy-gauge__mood", text: `${mood.emoji} ${mood.label}` }),
+      node("small", { className: "muted", text: "Glisse selon ton ressenti du moment" })
+    ]),
+    node("small", { className: "muted", text: energyGuidance(percent) })
+  );
+
+  return root;
+};
+
 export const featureOverrides = {
   microsoftAuth: {
     ...baseFeatures.microsoftAuth,
@@ -131,6 +188,20 @@ export const featureOverrides = {
         root.append(button);
 
         return root;
+      }
+    }
+  },
+
+  energy: {
+    ...baseFeatures.energy,
+    description: "Jauge d’énergie visuelle",
+    ui: {
+      ...baseFeatures.energy.ui,
+      render: ({ state }) => energyGauge(energyState(state).value ?? 5),
+      actions: {
+        ...baseFeatures.energy.ui.actions,
+        "energy.set-percent": ({ target, dispatch }) =>
+          dispatch("energy:set", { value: energyPercentToScore(target.value) })
       }
     }
   },
