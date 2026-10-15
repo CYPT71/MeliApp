@@ -70,6 +70,33 @@ const blockRow = (block) => {
   ]);
 };
 
+const classifier = (state) => {
+  const active = tasks(state).filter((task) => task.status !== "completed" && !task.parentTaskId);
+  const root = node("section", { className: "stack compact" }, [
+    node("div", { className: "row row--between" }, [
+      node("h3", { text: "Cours ou perso" }),
+      node("span", { className: "task-count", text: String(active.length) })
+    ]),
+    node("p", { className: "muted", text: "Classe chaque tâche pour que le planning équilibre les obligations de cours et le perso au lieu de tout mélanger dans une soupe de deadlines." })
+  ]);
+
+  for (const task of active.slice(0, 12)) {
+    const context = taskContext(task);
+    const explicit = Boolean(task.context || task.kind || task.category);
+    root.append(node("div", { className: "list-item row row--between" }, [
+      node("div", { className: "stack compact" }, [
+        node("strong", { text: task.title }),
+        node("small", { className: "muted", text: `${task.deadline ? `Échéance ${formatDeadline(task.deadline)}` : "Sans échéance"}${explicit ? "" : " · classée perso par défaut"}` })
+      ]),
+      node("div", { className: "row" }, [
+        button("📚 Cours", "adaptive-plan.context", { "data-id": task.id, "data-context": "cours", className: context === "cours" ? "primary" : "secondary" }),
+        button("🏠 Perso", "adaptive-plan.context", { "data-id": task.id, "data-context": "perso", className: context === "perso" ? "primary" : "secondary" })
+      ])
+    ]));
+  }
+  return root;
+};
+
 const render = ({ state }) => {
   const current = featureState(state, "adaptiveSchedule", {});
   const plan = current.blocks?.length || current.generatedAt ? current : computePlan(state);
@@ -87,7 +114,8 @@ const render = ({ state }) => {
     node("aside", { className: "hint" }, [
       node("strong", { text: `⚡ Énergie ${policy.level ?? energy(state)}/10` }),
       node("span", { text: ` · blocs d’environ ${policy.workMinutes ?? "?"} min · pauses ${policy.breakMinutes ?? "?"} min` })
-    ])
+    ]),
+    classifier(state)
   );
 
   if (!plan.blocks?.length) {
@@ -141,7 +169,8 @@ export const adaptiveScheduleFeatures = {
       order: 5,
       render,
       actions: {
-        "adaptive-plan.refresh": ({ dispatch }) => dispatch("adaptive-plan:refresh")
+        "adaptive-plan.refresh": ({ dispatch }) => dispatch("adaptive-plan:refresh"),
+        "adaptive-plan.context": ({ target, dispatch }) => dispatch("task:updated", { id: target.dataset.id, context: target.dataset.context })
       }
     }
   }
