@@ -4,10 +4,14 @@ import { findFreeWindows, splitTask } from "./scheduling.js";
 const MINUTE = 60_000;
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const asNumber = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
+const COURSE_HINTS = /\b(cours|classe|td|tp|cm|devoir|dm|partiel|examen|exam|révision|revision|rendre|mémoire|memoire|dissertation|exposé|expose|université|universite|fac|école|ecole|prof|professeur|matière|matiere|chapitre|fiche)\b/i;
 
 export const taskContext = (task = {}) => {
-  const value = String(task.context ?? task.kind ?? task.category ?? "perso").toLowerCase();
-  return value === "cours" || value === "school" || value === "study" ? "cours" : "perso";
+  const explicit = String(task.context ?? task.kind ?? task.category ?? "").toLowerCase();
+  if (["cours", "school", "study", "academic"].includes(explicit)) return "cours";
+  if (["perso", "personal", "home"].includes(explicit)) return "perso";
+  const searchable = [task.title, task.projectTitle, task.sourceTitle, task.description].filter(Boolean).join(" ");
+  return COURSE_HINTS.test(searchable) ? "cours" : "perso";
 };
 
 export const energyPolicy = (energy = 5) => {
