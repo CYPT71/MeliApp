@@ -43,8 +43,13 @@ const initials = (account) => String(account?.name ?? account?.email ?? "M")
   .join("") || "M";
 
 const accountSnapshot = (services) => {
-  const accounts = services.outlook?.getAccounts?.() ?? [];
-  const active = services.outlook?.getActiveAccount?.() ?? accounts.find((account) => account.active) ?? accounts[0] ?? null;
+  const exposed = services.outlook?.getAccounts?.();
+  let accounts = Array.isArray(exposed) ? exposed : [];
+  let active = services.outlook?.getActiveAccount?.() ?? accounts.find((account) => account.active) ?? accounts[0] ?? null;
+  if (!accounts.length && services.outlook?.isConnected?.()) {
+    active = active ?? { id: "default", name: "Compte Microsoft", email: null, active: true, connected: true };
+    accounts = [active];
+  }
   return { accounts, active };
 };
 
@@ -197,6 +202,7 @@ export const microsoftAccountFeatures = {
     },
     ui: {
       order: 1,
+      visible: ({ state, route }) => route === "settings" || !state.auth?.microsoft?.connected,
       render,
       actions: {
         "microsoft.add-account": ({ dispatch }) => dispatch("auth:microsoft:add"),
