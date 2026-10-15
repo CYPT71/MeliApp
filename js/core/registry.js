@@ -1,6 +1,10 @@
-import { features } from "../features.js";
+import { features as baseFeatures } from "../features.js";
+import { advancedFeatures } from "../features-advanced.js";
 
-export { features };
+export const features = Object.freeze({
+  ...baseFeatures,
+  ...advancedFeatures
+});
 
 const clone = (value) => {
   if (typeof structuredClone === "function") return structuredClone(value);
