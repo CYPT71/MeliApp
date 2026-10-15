@@ -137,7 +137,14 @@ export const energyFriendlyOverride = {
     description: "Sélecteur d’énergie visuel et sans chiffres",
     ui: {
       ...featureOverrides.energy.ui,
-      render: ({ state }) => energyGauge(state.features?.energy?.value ?? 5),
+      render: ({ state }) => {
+        const energy = state.features?.energy ?? {};
+        const gauge = energyGauge(energy.value ?? 5);
+        gauge.append(node("small", { className: "muted", role: "status", text: energy.updatedAt
+          ? `${energy.needsRefresh ? "Dernière énergie conservée — actualise-la si ton état a changé." : "Énergie enregistrée automatiquement pour adapter ton agenda."}`
+          : "Choisis ton énergie : elle sera enregistrée pour adapter ton agenda." }));
+        return gauge;
+      },
       actions: {
         ...featureOverrides.energy.ui.actions,
         "energy.pick-feeling": ({ event, target, dispatch }) => {

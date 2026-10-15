@@ -134,7 +134,7 @@ const eventForm = (state, event) => {
       select("Placement", "placement", normalizePlacement(placement), [["fixed", "📌 Fixe"], ["flexible", "↔ Flexible"]]),
       durationField("Peut bouger de ±", "rangeDuration", range)
     ]),
-    node("p", { className: "muted", text: "“Peut bouger de ±” indique jusqu’où MeliApp peut déplacer cet élément autour de son horaire. Le rendez-vous Outlook d’origine n’est pas déplacé tant que tu n’acceptes pas une proposition de planning." }),
+    node("p", { className: "muted", text: "“Peut bouger de ±” indique jusqu’où MeliApp peut déplacer cet élément autour de son horaire. Un rendez-vous Outlook reste réservé à son horaire d’origine ; seules les tâches flexibles sont réorganisées." }),
     node("div", { className: "row inspector-actions" }, [
       node("button", { type: "button", "data-action": "item-inspector.close", text: "Annuler" }),
       node("button", { type: "submit", className: "primary", "data-action": "item-inspector.save-event", "data-key": key, text: "Enregistrer" })
@@ -198,15 +198,15 @@ export const itemInspectorFeatures = {
         "item-inspector.open-event": ({ target, dispatch }) => dispatch("item-inspector:open", { type: "event", key: target.dataset.key }),
         "item-inspector.close": ({ dispatch }) => dispatch("item-inspector:close"),
         "item-inspector.backdrop": ({ event, target, dispatch }) => event.target === target ? dispatch("item-inspector:close") : undefined,
-        "item-inspector.save-task": ({ target, dispatch }) => dispatch("item-inspector:save-task", {
+        "item-inspector.save-task": async ({ target, dispatch }) => { await dispatch("item-inspector:save-task", {
           id: target.dataset.id,
           title: formValue(target, "title"), deadline: formValue(target, "deadline"), estimateMinutes: formValue(target, "estimateMinutes"),
           difficulty: formValue(target, "difficulty"), importance: formValue(target, "importance"), context: formValue(target, "context"),
           scheduleMode: formValue(target, "scheduleMode"), flexRangeDuration: formValue(target, "flexRangeDuration")
-        }),
-        "item-inspector.save-event": ({ target, dispatch }) => dispatch("item-inspector:save-event", {
+        }); return dispatch("adaptive-plan:refresh"); },
+        "item-inspector.save-event": async ({ target, dispatch }) => { await dispatch("item-inspector:save-event", {
           key: target.dataset.key, role: formValue(target, "role"), placement: formValue(target, "placement"), rangeDuration: formValue(target, "rangeDuration")
-        })
+        }); return dispatch("adaptive-plan:refresh"); }
       }
     }
   }

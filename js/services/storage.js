@@ -38,6 +38,8 @@ export const createIndexedDbStorage = () => ({
     await transact("readwrite", store => store.put(state, STATE_KEY));
     return state;
   },
+  loadRagIndex: () => transact("readonly", store => store.get("rag-index")),
+  saveRagIndex: index => transact("readwrite", store => store.put(index, "rag-index")),
   loadDrafts: () => transact("readonly", store => store.get("drafts")),
   saveDrafts: drafts => transact("readwrite", store => store.put(drafts, "drafts")),
   clear: () => transact("readwrite", store => store.clear())

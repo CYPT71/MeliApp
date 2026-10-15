@@ -16,7 +16,7 @@ export const findFreeWindows = ({ events = [], from, to, bufferMinutes = 10 }) =
   if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return [];
 
   const busy = normalizeEvents(events)
-    .map((event) => ({ start: Math.max(start, event.startMs - buffer), end: Math.min(end, event.endMs) }))
+    .map((event) => ({ start: Math.max(start, event.startMs - buffer), end: Math.min(end, event.endMs + buffer) }))
     .filter((slot) => slot.end > start && slot.start < end);
 
   const windows = [];

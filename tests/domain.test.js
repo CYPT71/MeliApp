@@ -30,7 +30,7 @@ test("findFreeWindows respects event buffer", () => {
 
   assert.equal(windows.length, 2);
   assert.equal(windows[0].minutes, 50);
-  assert.equal(windows[1].minutes, 60);
+  assert.equal(windows[1].minutes, 50);
 });
 
 test("splitTask refuses an unsplittable task that does not fit", () => {

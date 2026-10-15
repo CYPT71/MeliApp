@@ -123,8 +123,8 @@ export const advancedFeatures = {
         const form = el("form", { className: "feature-form" });
         form.append(
           field({ label: "Seuil énergie basse", name: "lowEnergyThreshold", type: "number", min: 1, max: 10, value: current.lowEnergyThreshold }),
-          field({ label: "Expiration énergie (min)", name: "energyExpiryMinutes", type: "number", min: 15, step: 15, value: current.energyExpiryMinutes }),
-          field({ label: "Marge avant rendez-vous (min)", name: "calendarBufferMinutes", type: "number", min: 0, step: 5, value: current.calendarBufferMinutes }),
+          field({ label: "Actualiser le ressenti après (min)", name: "energyExpiryMinutes", type: "number", min: 15, step: 15, value: current.energyExpiryMinutes }),
+          field({ label: "Marge autour des rendez-vous (min)", name: "calendarBufferMinutes", type: "number", min: 0, step: 5, value: current.calendarBufferMinutes }),
           selectField({ label: "Mode par défaut", name: "defaultWorkMode", value: current.defaultWorkMode, options: [
             { value: "free", label: "Libre" },
             { value: "flow", label: "Flow" },

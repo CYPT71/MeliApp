@@ -317,3 +317,92 @@ Les simples commits GitHub sans déploiement ne provoquent pas d’actualisation
 Dans Pas à pas, le sélecteur **Tâche à accompagner** reste visible en haut et propose les tâches en cours, y compris les sous-tâches. Le bouton **Commencer ou reprendre** ouvre le repère correspondant sans effacer les autres sessions.
 
 Pour créer une tâche, saisir son titre puis utiliser **Ajouter** ou Entrée. Les options conservent le titre saisi. Depuis un projet, **Ajouter une tâche** ouvre ce formulaire avec le projet présélectionné. Une tâche créée est affichée dans la liste ; les filtres sont réinitialisés pour qu’elle reste visible.
+
+## Agenda, énergie et durées
+
+La dernière énergie choisie est sauvegardée dans IndexedDB et conservée après
+fermeture. Après la durée de fraîcheur configurée, un message invite à actualiser
+le ressenti ; la valeur ne revient plus silencieusement à la moyenne.
+Dans **Journée → Durée de mes sessions**, l’utilisateur règle le maximum de
+travail (5–120 minutes), le minimum de pause (2–60 minutes) et l’autorisation
+d’ajuster ces durées avec l’IA. Une faible énergie raccourcit les blocs. Une
+tâche explicitement non découpable reste entière si un créneau le permet.
+
+Le calcul jour/semaine ignore tâches terminées, progression complète, échéances
+passées et événements finis, sans supprimer les données. Les rendez-vous,
+horaires de journée, marges avant/après, échéances et fenêtres flexibles bornent
+les propositions. Les blocs déjà publiés réduisent le travail restant. Avant
+publication Outlook, les événements sont relus ; un nouveau conflit impose un
+recalcul. Chaque POST possède un identifiant de transaction stable pour permettre
+une reprise sans doublon après échec partiel.
+
+## Claude / Codex, RAG et téléphone P2P
+
+Préparer sur l’ordinateur Node.js 20+, Git et au choix le CLI officiel `claude`
+ou `codex`, déjà connecté. Dans un checkout de ce dépôt :
+
+```sh
+npm ci
+npm run bridge -- --origin https://ORIGINE-DE-MELIAPP
+```
+
+L’origine comprend le protocole et le domaine, sans chemin. **Réglages → Claude /
+Codex et liaison P2P** fournit des commandes Shell et PowerShell adaptées à
+l’origine courante. Copier le code affiché par le terminal dans l’app. Le serveur
+écoute seulement `127.0.0.1:8766`, vérifie l’origine et un secret aléatoire, et
+accepte uniquement les demandes Claude/Codex prévues. Le texte entre par stdin,
+jamais par interpolation shell. Le code reste dans sessionStorage de l’ordinateur,
+pas dans IndexedDB ni dans les données échangées. Le navigateur peut demander
+l’autorisation d’accéder au réseau local. Garder le terminal ouvert.
+
+Le CLI utilise son fournisseur et son compte habituels : « passerelle locale »
+ne signifie pas modèle exécuté hors ligne. Claude est lancé sans outils ; Codex
+est lancé dans un répertoire temporaire en sandbox lecture seule, avec ses outils
+éventuels. Les réponses s’affichent comme du texte, sans HTML exécuté. Les outils
+réels des CLI et les politiques Windows doivent aussi être vérifiés sur la machine
+cible : les tests automatisés simulent les réponses des CLI.
+
+À chaque demande, MeliApp construit un index lexical à partir des tâches éligibles
+et événements à venir, le sauvegarde sous `rag-index` dans IndexedDB puis extrait
+au plus 12 documents pertinents, avec énergie et préférences de session. Ce RAG
+local utilise les mots et la proximité des échéances, sans serveur vectoriel ni
+embeddings externes. **Optimiser mon agenda avec l’IA** demande un ordre et des
+durées structurés, rejette les identifiants inventés et durées hors limites, puis
+recalcule avec le moteur déterministe. Le bonus d’ordre IA reste borné ; il ne
+supprime aucune contrainte d’horaire. Une recommandation expire après trois heures
+ou changement d’énergie. La publication Outlook demeure une action explicite.
+
+Pour le téléphone :
+
+1. Sur l’app HTTPS de l’ordinateur, cliquer **Relier mon natel en P2P · QR code**.
+2. Scanner le QR dans les dix minutes. Il ouvre la même app publique et associe
+   les deux navigateurs via WebRTC. Le premier jeu de données est transmis
+   directement puis sauvegardé dans l’IndexedDB du téléphone.
+3. **Partager** / **Récupérer** échangent tâches, projets, énergie, durées et
+   événements ; les versions locales plus récentes sont conservées. Cette fusion
+   ne propage pas les suppressions physiques absentes d’un instantané.
+4. Installer l’app sur le téléphone pour la réouvrir hors ligne. Après fermeture
+   ou rechargement des navigateurs, refaire l’association pour échanger à nouveau.
+
+Le QR est généré dans le navigateur, sans service QR externe. PeerJS utilise son
+serveur public de **signalisation uniquement** et des serveurs STUN Google ; les
+données et demandes IA passent directement dans le DataChannel WebRTC chiffré.
+Aucun relais TURN n’est activé. Une liaison directe peut fonctionner entre réseaux
+distants, mais certains NAT, pare-feu ou réseaux mobiles l’empêchent. Les deux
+navigateurs doivent être ouverts pour un échange ; les suspensions mobiles peuvent
+couper la liaison. Ne pas partager le lien d’association : il contient son secret.
+
+**PC éteint :** données reçues, MindMap, énergie, durées et calcul local de planning
+restent disponibles sur le téléphone. L’IA CLI hébergée par le PC et les nouveaux
+échanges attendent sa reconnexion. Un fonctionnement IA garanti PC éteint exige
+un modèle réellement installé sur le téléphone ou un autre hôte allumé ; le P2P
+ne peut pas exécuter un programme sur une machine éteinte.
+
+Les bibliothèques PeerJS et QR sont regroupées dans `js/vendor/peer-qr.js` pour
+l’usage hors ligne. Après mise à jour des dépendances, `npm run vendor` régénère
+ce fichier ; les licences accompagnent le bundle. Les tests utilisent des mocks
+Graph/CLI/signalisation, un transport P2P simulé entre navigateurs, puis une
+réouverture hors ligne après coupure du PC. Ils ne garantissent ni l’authentification
+réelle aux fournisseurs ni le passage de tous les réseaux distants.
+
+Le Chromium géré de l’environnement cloud impose `WebRtcIPHandling=disable_non_proxied_udp`. La signalisation native a été observée, mais aucun candidat ICE n’est émis : la liaison WebRTC réelle n’est donc pas validée ici. Vérifier ce point sur les appareils cibles, sans modifier cette politique gérée.

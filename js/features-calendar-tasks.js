@@ -87,12 +87,13 @@ export const calendarTaskFeatures = {
       }),
       actions: {
         ...(baseFeatures.calendarView.ui?.actions ?? {}),
-        "calendar.import-task": ({ target, dispatch }) => {
+        "calendar.import-task": async ({ target, dispatch }) => {
           const deadlineInput = target.closest("form")?.elements?.namedItem("taskDeadline");
-          return dispatch("calendar:task-import", {
+          await dispatch("calendar:task-import", {
             eventId: target.dataset.eventId,
             ...(deadlineInput ? { deadline: deadlineInput.value } : {})
           });
+          return dispatch("adaptive-plan:refresh");
         }
       }
     }

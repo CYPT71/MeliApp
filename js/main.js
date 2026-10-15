@@ -1,3 +1,4 @@
+import { trackVisibleViewport } from "./ui/viewport.js";
 import { createDraftService, DRAFT_FORMS } from "./services/drafts.js";
 import { createUpdateService } from "./services/updates.js";
 import { createRewardFeedback } from "./ui/rewards.js";
@@ -10,8 +11,14 @@ import { createServices } from "./services/index.js";
 import { bindFeatureActions } from "./ui/actions.js";
 import { renderFeatures } from "./ui/render.js";
 
+trackVisibleViewport();
 const root = document.querySelector("#app");
 const services = createServices();
+let pairing = null;
+if (location.hash.startsWith('#pair=')) {
+  try { pairing = JSON.parse(decodeURIComponent(location.hash.slice(6))); } catch { pairing = {}; }
+  history.replaceState(null, '', location.pathname + location.search + '#/settings');
+}
 const saveStatus = document.querySelector("#storage-status");
 const showStorageError = () => {
   saveStatus.textContent = "Sauvegarde indisponible. Garde cet onglet ouvert et exporte tes données depuis Données.";
@@ -66,13 +73,21 @@ bindFeatureActions({
   getState: app.getState
 });
 
-rerender(app.getState());
-await app.dispatch(EVENTS.APP_START);
-
 window.addEventListener("hashchange", () => {
   route = routeFromHash(window.location.hash);
   rerender(app.getState());
 });
+
+rerender(app.getState());
+await app.dispatch(EVENTS.APP_START);
+services.peerLink.configure({
+  getData: () => ({ tasks: app.getState().features.tasks?.items ?? [], projects: app.getState().features.projects?.items ?? [], energy: app.getState().features.energy, events: app.getState().calendar?.events ?? [] }),
+  onStatus: status => app.dispatch('cli-ai:peer-status', status),
+  onData: async data => { await app.dispatch('cli-ai:peer-data', data); await app.dispatch('adaptive-plan:refresh'); },
+  prompt: (provider, prompt) => services.cliAi.prompt(provider, prompt)
+});
+if (pairing) { await app.dispatch('cli-ai:peer-join', pairing); pairing = null; }
+
 window.addEventListener("online", () => app.dispatch(EVENTS.APP_ONLINE));
 window.addEventListener("offline", () => app.dispatch(EVENTS.APP_OFFLINE));
 document.addEventListener("visibilitychange", () => {

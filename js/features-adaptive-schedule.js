@@ -1,3 +1,6 @@
+import { sessionOptions } from "./domain/session-preferences.js";
+import { planningInputs } from "./domain/planning-inputs.js";
+import { exclusionReason } from "./domain/planning-eligibility.js";
 import { categoryPresentation } from "./domain/outlook-categories.js";
 import { buildAdaptiveDayPlan, taskContext } from "./domain/adaptive-planning.js";
 import { buildAdaptiveWeekPlan } from "./domain/weekly-planning.js";
@@ -37,33 +40,24 @@ const dayEnd = (state, now = new Date()) => {
   const [hours, minutes] = String(raw).split(":").map(Number);
   const end = new Date(now);
   end.setHours(Number.isFinite(hours) ? hours : 23, Number.isFinite(minutes) ? minutes : 0, 0, 0);
-  if (end <= now) end.setTime(now.getTime() + 60 * 60 * 1000);
   return end;
-};
-
-const planningInputs = (state) => {
-  const explicitTasks = tasks(state);
-  const roles = featureState(state, "calendarSources", { roles: {} }).roles ?? {};
-  const { appointments, taskEvents } = splitCalendarEvents(state.calendar?.events ?? [], roles);
-  const importedEventIds = new Set(explicitTasks.map((task) => task.sourceEventId).filter(Boolean).map(String));
-  const inferredTasks = taskEvents
-    .filter((event) => !importedEventIds.has(String(event.id)))
-    .map(calendarEventToPlanningTask);
-  return { tasks: [...explicitTasks, ...inferredTasks], events: appointments };
 };
 
 const computePlan = (state) => {
   const now = new Date();
   const settings = featureState(state, "settings", {});
-  const inputs = planningInputs(state);
-  return buildAdaptiveDayPlan({
+  const inputs = planningInputs(state, now.getTime());
+  const [startHour, startMinute] = String(settings.dayStart ?? "08:00").split(":").map(Number);
+  const start = new Date(now); start.setHours(startHour || 0, startMinute || 0, 0, 0);
+  return { ...buildAdaptiveDayPlan({
     tasks: inputs.tasks,
     events: inputs.events,
     energy: energy(state),
-    from: now,
+    sessionPreferences: sessionOptions(state),
+    from: new Date(Math.max(now.getTime(), start.getTime())),
     to: dayEnd(state, now),
     bufferMinutes: Number(settings.calendarBufferMinutes ?? state.settings?.calendarBufferMinutes ?? 10)
-  });
+  }), excluded: inputs.excluded };
 };
 
 const computeWeek = (state, variant = 0) => {
@@ -74,6 +68,7 @@ const computeWeek = (state, variant = 0) => {
       tasks: inputs.tasks,
       events: inputs.events,
       energy: energy(state),
+    sessionPreferences: sessionOptions(state),
       from: Date.now(),
       days: 7,
       dayStart: settings.dayStart ?? "08:00",
@@ -81,6 +76,7 @@ const computeWeek = (state, variant = 0) => {
       bufferMinutes: Number(settings.calendarBufferMinutes ?? state.settings?.calendarBufferMinutes ?? 10),
       variant
     }),
+    excluded: inputs.excluded,
     mergeStatus: "idle",
     mergeError: null,
     mergedAt: null
@@ -111,7 +107,7 @@ const blockRow = (block) => {
 };
 
 const classifier = (state) => {
-  const active = tasks(state).filter((task) => task.status !== "completed" && !task.parentTaskId);
+  const active = tasks(state).filter(task => !exclusionReason(task, Date.now()) && !task.parentTaskId);
   const root = node("section", { className: "stack compact" }, [
     node("div", { className: "row row--between" }, [
       node("h3", { text: "Cours ou perso" }),
@@ -187,7 +183,8 @@ const render = ({ state }) => {
   const weekly = current.weekly?.generatedAt ? current.weekly : computeWeek(state, 0);
   const policy = plan.policy ?? {};
   const roles = featureState(state, "calendarSources", { roles: {} }).roles ?? {};
-  const split = splitCalendarEvents(state.calendar?.events ?? [], roles);
+  const inputs = planningInputs(state);
+  const split = splitCalendarEvents(inputs.events, roles);
   const root = node("div", { className: "stack adaptive-plan" });
 
   root.append(
@@ -202,9 +199,10 @@ const render = ({ state }) => {
     ]),
     node("aside", { className: "hint" }, [
       node("strong", { text: `⚡ Énergie ${policy.level ?? energy(state)}/10` }),
-      node("span", { text: ` · ${split.appointments.length} rendez-vous · ${split.taskEvents.length} tâches détectées · blocs ~${policy.workMinutes ?? "?"} min · pauses ${policy.breakMinutes ?? "?"} min` })
+      node("span", { text: ` · ${split.appointments.length} rendez-vous · ${inputs.tasks.length} tâches à venir · blocs ~${policy.workMinutes ?? "?"} min · pauses ${policy.breakMinutes ?? "?"} min` })
     ]),
-    classifier(state)
+    classifier(state),
+    node("p", { className: "muted", text: "Les tâches terminées et les échéances passées sont ignorées. Les rendez-vous existants restent réservés ; seules les tâches sont proposées dans leurs créneaux autorisés." })
   );
 
   if (!plan.blocks?.length) {
@@ -260,21 +258,58 @@ export const adaptiveScheduleFeatures = {
       const current = featureState(state, "adaptiveSchedule", {});
       if (event === "adaptive-week:merge") {
         const weekly = current.weekly?.generatedAt ? current.weekly : computeWeek(state, 0);
+        if (weekly.mergeStatus === "done") return state;
         if (!services.outlook?.isConnected?.() || typeof services.outlook?.createPlanningBlocks !== "function") {
           return setFeatureState(state, "adaptiveSchedule", { ...current, weekly: { ...weekly, mergeStatus: "error", mergeError: "Outlook doit être connecté pour fusionner la proposition." } });
         }
-        const publishable = (weekly.blocks ?? []).filter((block) => block.type === "task" || block.type === "break");
+        const now = Date.now();
+        const eligible = new Set(planningInputs(state, now).tasks.map(task => task.id));
+        for (const task of tasks(state)) if (!exclusionReason(task, now) && task.scheduleMode === "fixed") eligible.add(task.id);
+        const work = (weekly.blocks ?? []).filter(block => block.type === "task" && eligible.has(block.taskId) && new Date(block.startIso).getTime() >= now);
+        const publishable = (weekly.blocks ?? []).filter(block => work.includes(block) || block.type === "break" && new Date(block.startIso).getTime() >= now && work.some(task => task.end <= block.start && formatDay(task.startIso) === formatDay(block.startIso)));
+        let latestState = state;
         try {
-          const mergingState = { ...weekly, mergeStatus: "merging", mergeError: null };
-          await services.outlook.createPlanningBlocks(publishable);
-          return setFeatureState(state, "adaptiveSchedule", {
+          if (!work.length) throw new Error("Aucun créneau de travail futur à ajouter. Recalcule la proposition.");
+          if (services.outlook.listEvents) {
+            const calendarIds = state.features?.calendarView?.selectedCalendarIds ?? state.calendar?.calendars?.map(calendar => calendar.id);
+            const events = await services.outlook.listEvents({ from: new Date(now).toISOString(), to: new Date(Math.max(...publishable.map(block => new Date(block.endIso).getTime()))).toISOString(), ...(calendarIds ? { calendarIds } : {}) });
+            latestState = { ...state, calendar: { ...state.calendar, events } };
+            const freshInputs = planningInputs(latestState, now);
+            const reservations = freshInputs.events;
+            const budgets = new Map(freshInputs.tasks.map(task => [task.id, Number(task.estimateMinutes ?? 25) * (1 - Number(task.progress ?? 0))]));
+            for (const task of tasks(state)) if (task.scheduleMode === "fixed" && !exclusionReason(task, now) && !freshInputs.excluded.some(item => item.id === task.id && item.reason === "scheduled")) budgets.set(task.id, Number(task.estimateMinutes ?? 25) * (1 - Number(task.progress ?? 0)));
+            const used = new Map();
+            for (const block of work) {
+              const alreadyExists = events.some(event => event.isPlanningBlock && new Date(event.start).getTime() === block.start && new Date(event.end).getTime() === block.end && event.planningTaskId === block.taskId);
+              if (!alreadyExists) used.set(block.taskId, (used.get(block.taskId) ?? 0) + block.minutes);
+            }
+            for (const [id, minutes] of used) if (minutes > (budgets.get(id) ?? 0) + .01) throw new Error("Du travail a déjà été planifié ou terminé pour cette tâche. Recalcule pour éviter les doublons.");
+            const buffer = Number(featureState(state, "settings", {}).calendarBufferMinutes ?? state.settings?.calendarBufferMinutes ?? 10) * 60000;
+            for (const block of publishable) {
+              const start = new Date(block.startIso).getTime(), end = new Date(block.endIso).getTime();
+              const conflict = reservations.some(event => {
+                if (event.sourceTaskId === block.taskId && block.taskId) return false;
+                const eventStart = new Date(event.start).getTime(), eventEnd = new Date(event.end).getTime();
+                const belongsToProposal = event.isPlanningBlock && publishable.some(candidate => eventStart === candidate.start && eventEnd === candidate.end && (candidate.taskId && event.planningTaskId === candidate.taskId || event.title === `${candidate.type === "break" ? "☕" : "🎯"} ${candidate.title}`));
+                return !belongsToProposal && start < eventEnd + buffer && end > eventStart - buffer;
+              });
+              if (conflict) throw new Error("Ton agenda a changé : un rendez-vous occupe un créneau proposé. Recalcule avant de fusionner.");
+            }
+          }
+          const created = await services.outlook.createPlanningBlocks(publishable);
+          if (Array.isArray(created)) {
+            if (created.length !== publishable.length) { const error = new Error("Certains créneaux ont commencé pendant l’ajout. Recalcule la suite."); error.publishedCount = created.length; throw error; }
+            const posted = publishable.map((block, index) => ({ id: created[index]?.id ?? `published:${block.startIso}:${index}`, title: `${block.type === "break" ? "☕" : "🎯"} ${block.title}`, start: block.startIso, end: block.endIso, isPlanningBlock: true, planningTaskId: block.taskId ?? null, showAs: block.type === "break" ? "free" : "busy" }));
+            latestState = { ...latestState, calendar: { ...latestState.calendar, events: [...latestState.calendar.events, ...posted] } };
+          }
+          return setFeatureState(latestState, "adaptiveSchedule", {
             ...current,
-            weekly: { ...mergingState, mergeStatus: "done", mergedAt: new Date().toISOString() }
+            weekly: { ...weekly, mergeStatus: "done", mergeError: null, mergedAt: new Date().toISOString() }
           });
         } catch (error) {
-          return setFeatureState(state, "adaptiveSchedule", {
+          return setFeatureState(latestState, "adaptiveSchedule", {
             ...current,
-            weekly: { ...weekly, mergeStatus: "error", mergeError: error instanceof Error ? error.message : String(error) }
+            weekly: { ...weekly, mergeStatus: "error", mergeError: `${error instanceof Error ? error.message : String(error)}${error.publishedCount ? ` · ${error.publishedCount} bloc(s) déjà ajouté(s). Réessayer reprend sans doublon.` : ""}` }
           });
         }
       }
@@ -290,7 +325,7 @@ export const adaptiveScheduleFeatures = {
       actions: {
         "adaptive-plan.refresh": ({ dispatch }) => dispatch("adaptive-plan:refresh"),
         "adaptive-week.reroll": ({ dispatch }) => dispatch("adaptive-week:reroll"),
-        "adaptive-week.merge": ({ dispatch }) => dispatch("adaptive-week:merge"),
+        "adaptive-week.merge": ({ target, dispatch }) => { if (target) { target.disabled = true; target.textContent = "Ajout en cours…"; } return dispatch("adaptive-week:merge"); },
         "adaptive-plan.context": ({ target, dispatch }) => dispatch("task:updated", { id: target.dataset.id, context: target.dataset.context })
       }
     }

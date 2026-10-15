@@ -1,3 +1,4 @@
+import { exclusionReason, remainingWork, taskWindow } from "./planning-eligibility.js";
 import { computePriorityScore, minutesUntil } from "./scoring.js";
 import { findFreeWindows, splitTask } from "./scheduling.js";
 
@@ -14,12 +15,17 @@ export const taskContext = (task = {}) => {
   return COURSE_HINTS.test(searchable) ? "cours" : "perso";
 };
 
-export const energyPolicy = (energy = 5) => {
+export const energyPolicy = (energy = 5, preferences = {}) => {
   const level = clamp(asNumber(energy, 5), 1, 10);
-  if (level <= 2) return { level, workMinutes: 12, breakMinutes: 10, maxDifficulty: 2, slackRatio: 0.3, label: "énergie très basse" };
-  if (level <= 4) return { level, workMinutes: 22, breakMinutes: 10, maxDifficulty: 3, slackRatio: 0.22, label: "énergie basse" };
-  if (level <= 7) return { level, workMinutes: 40, breakMinutes: 10, maxDifficulty: 4, slackRatio: 0.15, label: "énergie moyenne" };
-  return { level, workMinutes: 52, breakMinutes: 12, maxDifficulty: 5, slackRatio: 0.1, label: "énergie haute" };
+  const policy = level <= 2 ? { workMinutes:12, breakMinutes:10, maxDifficulty:2, slackRatio:.3, label:"énergie très basse" }
+    : level <= 4 ? { workMinutes:22, breakMinutes:10, maxDifficulty:3, slackRatio:.22, label:"énergie basse" }
+    : level <= 7 ? { workMinutes:40, breakMinutes:10, maxDifficulty:4, slackRatio:.15, label:"énergie moyenne" }
+    : { workMinutes:52, breakMinutes:12, maxDifficulty:5, slackRatio:.1, label:"énergie haute" };
+  const workLimit = clamp(asNumber(preferences.workMinutes,52),5,120);
+  const energyLimit = Math.max(5,Math.round(workLimit * policy.workMinutes / 52));
+  const workMinutes = Math.min(energyLimit,clamp(asNumber(preferences.recommendedWorkMinutes,energyLimit),5,workLimit));
+  const breakMinutes = Math.max(policy.breakMinutes,clamp(asNumber(preferences.breakMinutes,10),2,60),clamp(asNumber(preferences.recommendedBreakMinutes,2),2,60));
+  return { ...policy,level,workMinutes,breakMinutes };
 };
 
 const deadlineWeight = (task, now) => {
@@ -55,18 +61,12 @@ export const adaptiveTaskScore = ({ task, energy, freeWindowMinutes, now = Date.
   const alternation = lastContext && lastContext !== context ? 1.5 : 0;
   const courseDeadlineBonus = context === "cours" && task.deadline ? 2 : 0;
   const variation = stableVariantJitter(task.id, variant, now);
-  return base + deadline + alternation + courseDeadlineBonus + variation - deadlineOverride;
+  return Math.max(0, Math.min(2, Number(task.aiPreference) || 0)) + base + deadline + alternation + courseDeadlineBonus + variation - deadlineOverride;
 };
 
-const taskRemainingMinutes = (task) => {
-  const estimate = Math.max(5, asNumber(task.estimateMinutes, 25));
-  const progress = clamp(asNumber(task.progress, 0), 0, 1);
-  return Math.max(5, Math.ceil((estimate * (1 - progress)) / 5) * 5);
-};
-
-const eligibleTasks = (tasks = []) => tasks
-  .filter((task) => task && task.status !== "completed" && !task.parentTaskId)
-  .map((task) => ({ ...task, remainingMinutes: taskRemainingMinutes(task) }));
+const eligibleTasks = (tasks = [], now) => tasks
+  .filter(task => task && !task.parentTaskId && !exclusionReason(task, now))
+  .map(task => ({ ...task, remainingMinutes: remainingWork(task) }));
 
 const pushBlock = (blocks, block) => {
   if (block.end <= block.start) return;
@@ -86,16 +86,17 @@ export const buildAdaptiveDayPlan = ({
   to,
   bufferMinutes = 10,
   dayEndHour = 23,
+  sessionPreferences = {},
   variant = 0
 } = {}) => {
   const start = new Date(from).getTime();
   const fallbackEnd = new Date(start);
   fallbackEnd.setHours(dayEndHour, 0, 0, 0);
   const end = to ? new Date(to).getTime() : fallbackEnd.getTime();
-  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return { blocks: [], unscheduled: [], policy: energyPolicy(energy) };
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return { blocks: [], unscheduled: eligibleTasks(tasks, start).map(task => ({ ...task, reason: "Aucun créneau restant dans les horaires du jour" })), policy: energyPolicy(energy, sessionPreferences) };
 
-  const policy = energyPolicy(energy);
-  const active = eligibleTasks(tasks);
+  const policy = energyPolicy(energy, sessionPreferences);
+  const active = eligibleTasks(tasks, start);
   const remainingById = new Map(active.map((task) => [task.id, task.remainingMinutes]));
   const blocks = [];
   let lastContext = null;
@@ -109,7 +110,9 @@ export const buildAdaptiveDayPlan = ({
   const windows = findFreeWindows({ events: relevantEvents, from: new Date(start), to: new Date(end), bufferMinutes });
   for (const event of relevantEvents) {
     pushBlock(blocks, {
-      type: "event",
+      type: event.sourceTaskId ? "task" : "event",
+      taskId: event.sourceTaskId ?? null,
+      fixed: true,
       start: Math.max(start, event.startMs),
       end: Math.min(end, event.endMs),
       title: event.title ?? event.subject ?? "Événement agenda",
@@ -123,28 +126,38 @@ export const buildAdaptiveDayPlan = ({
     const usableEnd = window.end - Math.round(window.minutes * policy.slackRatio) * MINUTE;
     let completedWorkBlocks = 0;
 
-    while (cursor + 5 * MINUTE <= usableEnd) {
+    while (cursor + MINUTE <= usableEnd) {
       const availableMinutes = Math.floor((usableEnd - cursor) / MINUTE);
       const candidates = active
         .filter((task) => (remainingById.get(task.id) ?? 0) > 0)
         .map((task) => {
           const remaining = remainingById.get(task.id) ?? task.remainingMinutes;
+          const bounds = taskWindow(task);
+          if (cursor < bounds.start || cursor >= bounds.end) return null;
+          const available = Math.min(availableMinutes, Math.floor((bounds.end - cursor) / MINUTE));
+          if (available < 1) return null;
           const cappedTask = { ...task, estimateMinutes: remaining };
-          const chunk = splitTask(cappedTask, Math.min(availableMinutes, policy.workMinutes));
+          const chunk = splitTask(cappedTask, task.splittable === false ? available : Math.min(available, policy.workMinutes));
           if (!chunk) return null;
           return {
             task,
             context: taskContext(task),
             score: adaptiveTaskScore({ task, energy, freeWindowMinutes: availableMinutes, now: cursor, lastContext, variant }),
-            chunkMinutes: Math.min(remaining, chunk.chunkMinutes ?? policy.workMinutes, policy.workMinutes)
+            chunkMinutes: Math.min(remaining, chunk.chunkMinutes ?? remaining)
           };
         })
         .filter(Boolean)
         .sort((a, b) => b.score - a.score || new Date(a.task.deadline ?? 8640000000000000) - new Date(b.task.deadline ?? 8640000000000000));
 
       const picked = candidates[0];
-      if (!picked) break;
-      const workMinutes = Math.max(5, Math.floor(picked.chunkMinutes / 5) * 5);
+      if (!picked) {
+        const nextStart = active.filter(task => (remainingById.get(task.id) ?? 0) > 0)
+          .map(task => taskWindow(task).start).filter(time => time > cursor && time < usableEnd);
+        if (!nextStart.length) break;
+        cursor = Math.min(...nextStart);
+        continue;
+      }
+      const workMinutes = Math.max(1, Math.ceil(picked.chunkMinutes));
       const workEnd = Math.min(usableEnd, cursor + workMinutes * MINUTE);
       const deadlineMinutes = picked.task.deadline ? minutesUntil(picked.task.deadline, cursor) : Infinity;
       const reason = deadlineMinutes <= 24 * 60
@@ -169,7 +182,7 @@ export const buildAdaptiveDayPlan = ({
       completedWorkBlocks += 1;
 
       const stillHasRoom = cursor + 5 * MINUTE < usableEnd;
-      if (stillHasRoom && completedWorkBlocks > 0) {
+      if (stillHasRoom && completedWorkBlocks > 0 && active.some(task => (remainingById.get(task.id) ?? 0) > 0)) {
         const pauseMinutes = Math.min(policy.breakMinutes, Math.floor((usableEnd - cursor) / MINUTE));
         if (pauseMinutes >= 5) {
           pushBlock(blocks, {
@@ -186,7 +199,7 @@ export const buildAdaptiveDayPlan = ({
   }
 
   const unscheduled = active
-    .map((task) => ({ ...task, remainingMinutes: remainingById.get(task.id) ?? 0 }))
+    .map((task) => ({ ...task, remainingMinutes: remainingById.get(task.id) ?? 0, reason: taskWindow(task).end <= end ? "Échéance ou fenêtre trop courte pour le travail restant" : "Capacité disponible insuffisante" }))
     .filter((task) => task.remainingMinutes > 0)
     .sort((a, b) => adaptiveTaskScore({ task: b, energy, freeWindowMinutes: 60, now: start, variant }) - adaptiveTaskScore({ task: a, energy, freeWindowMinutes: 60, now: start, variant }));
 
@@ -194,6 +207,7 @@ export const buildAdaptiveDayPlan = ({
     policy,
     blocks: blocks.sort((a, b) => a.start - b.start),
     unscheduled,
+    excluded: tasks.filter(task => task && exclusionReason(task, start)).map(task => ({ id: task.id, title: task.title, reason: exclusionReason(task, start) })),
     generatedAt: new Date().toISOString()
   };
 };

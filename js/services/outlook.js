@@ -346,7 +346,7 @@ export const createOutlookService = ({ clientId, tenant = "common", authMode = "
       startDateTime: from,
       endDateTime: to,
       "$orderby": "start/dateTime",
-      "$select": "id,subject,start,end,isAllDay,location,webLink,categories,isOnlineMeeting,onlineMeeting,onlineMeetingProvider"
+      "$select": "id,subject,start,end,isAllDay,location,webLink,categories,isOnlineMeeting,onlineMeeting,onlineMeetingProvider,bodyPreview,transactionId,showAs,isCancelled"
     });
     const namespaceIds = accounts.length > 1;
     let targets = [];
@@ -396,6 +396,10 @@ export const createOutlookService = ({ clientId, tenant = "common", authMode = "
     return items.map((event) => {
       const base = {
         id: event.id,
+        isCancelled: Boolean(event.isCancelled),
+        showAs: event.showAs ?? "busy",
+        isPlanningBlock: String(event.transactionId ?? "").startsWith("meliapp-") || /^(🎯|☕)/u.test(event.subject ?? "") && String(event.bodyPreview ?? "").includes("MeliApp"),
+        planningTaskId: (() => { const match = /MeliAppTaskId: ([^\s]+)/.exec(event.bodyPreview ?? ""); try { return match ? decodeURIComponent(match[1]) : null; } catch { return null; } })(),
         calendarId: event.calendarId ?? "default",
         calendarName: calendarName ?? (namespaceIds ? "Calendrier" : "Calendrier principal"),
         isOnlineMeeting: Boolean(event.isOnlineMeeting),
@@ -423,9 +427,10 @@ export const createOutlookService = ({ clientId, tenant = "common", authMode = "
     }).filter((event) => event.start && event.end);
   };
 
-  const createEvent = async ({ title, start, end, body = "", showAs = "busy", categories = [] }) => {
+  const createEvent = async ({ title, start, end, body = "", showAs = "busy", categories = [], transactionId }) => {
     const startDate = start instanceof Date ? start : new Date(start);
     const endDate = end instanceof Date ? end : new Date(end);
+    if (!Number.isFinite(startDate.getTime()) || !Number.isFinite(endDate.getTime()) || endDate <= startDate) throw new Error("Créneau Outlook invalide");
     return request("/me/events", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -435,7 +440,8 @@ export const createOutlookService = ({ clientId, tenant = "common", authMode = "
         start: { dateTime: startDate.toISOString().replace(/Z$/, ""), timeZone: "UTC" },
         end: { dateTime: endDate.toISOString().replace(/Z$/, ""), timeZone: "UTC" },
         showAs,
-        categories
+        categories,
+        ...(transactionId ? { transactionId } : {})
       })
     });
   };
@@ -447,21 +453,32 @@ export const createOutlookService = ({ clientId, tenant = "common", authMode = "
     body: "Bloc de focus créé par MeliApp."
   });
 
+  const publishedBlocks = new Map();
   const createPlanningBlocks = async (blocks = []) => {
     const published = [];
+    const accountId = activeAccount()?.id ?? "default";
     for (const block of blocks) {
       if (!block?.startIso || !block?.endIso || !["task", "break"].includes(block.type)) continue;
+      if (new Date(block.startIso).getTime() < Date.now() || new Date(block.endIso) <= new Date(block.startIso)) continue;
+      const signature = JSON.stringify([accountId, block.type, block.taskId ?? block.title, block.startIso, block.endIso]);
+      const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(signature));
+      const transactionId = "meliapp-" + [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, "0")).join("");
+      if (publishedBlocks.has(transactionId)) { published.push(publishedBlocks.get(transactionId)); continue; }
       const isBreak = block.type === "break";
-      const event = await createEvent({
-        title: isBreak ? `☕ ${block.title || "Pause"}` : `🎯 ${block.title || "Focus"}`,
-        start: block.startIso,
-        end: block.endIso,
-        body: isBreak
-          ? "Pause proposée par MeliApp dans le planning hebdomadaire."
-          : `Bloc de travail proposé par MeliApp.${block.deadline ? `\nDeadline : ${block.deadline}` : ""}${block.reason ? `\nPourquoi : ${block.reason}` : ""}`,
-        showAs: isBreak ? "free" : "busy"
-      });
-      published.push(event);
+      try {
+        const event = await createEvent({
+          title: isBreak ? `☕ ${block.title || "Pause"}` : `🎯 ${block.title || "Focus"}`,
+          start: block.startIso,
+          end: block.endIso,
+          body: isBreak ? "Pause proposée par MeliApp dans le planning hebdomadaire."
+            : `Bloc de travail proposé par MeliApp.\nMeliAppTaskId: ${encodeURIComponent(block.taskId ?? "")}\n${block.deadline ? `Deadline : ${block.deadline}\n` : ""}${block.reason ? `Pourquoi : ${block.reason}` : ""}`,
+          showAs: isBreak ? "free" : "busy",
+          categories: block.categories ?? [],
+          transactionId
+        });
+        publishedBlocks.set(transactionId, event);
+        published.push(event);
+      } catch (error) { error.publishedCount = published.length; throw error; }
     }
     return published;
   };

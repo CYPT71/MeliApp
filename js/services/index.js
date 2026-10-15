@@ -1,3 +1,5 @@
+import { createPeerLink } from "./peer-link.js";
+import { createCliAiService } from "./cli-ai.js";
 import { config } from "../config.js";
 import { createAiService } from "./ai.js";
 import { createInstallService } from "./install.js";
@@ -12,6 +14,8 @@ export const createServices = () => ({
   notifications: createNotificationService(),
   install: createInstallService(),
   localAi: createLocalAiService(),
+  cliAi: createCliAiService(),
+  peerLink: createPeerLink(),
   outlook: createOutlookService({
     clientId: config.microsoftClientId,
     tenant: config.microsoftTenant,

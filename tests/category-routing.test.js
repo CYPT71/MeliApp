@@ -17,7 +17,7 @@ test("production registry exposes the expected grouped navigation", () => {
   assert.equal(byPath.mindmap.page.title, "Mindmap");
   assert.equal(byPath.mindmap.page.nav, true);
   assert.deepEqual(byPath.projects.names, ["projects"]);
-  assert.deepEqual(byPath.day.names, ["flow", "adaptiveSchedule"]);
+  assert.deepEqual(byPath.day.names, ["flow", "adaptiveSchedule", "sessionPreferences"]);
   assert.ok(byPath.progress.names.includes("game"));
   assert.ok(byPath.settings.names.includes("microsoftAuth"));
   assert.ok(byPath.settings.names.includes("schedulePreferences"));

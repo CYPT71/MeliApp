@@ -91,6 +91,8 @@ export const calendarEventToPlanningTask = (event = {}) => {
     earliestStart: isFlexible && Number.isFinite(startMs) ? new Date(startMs - range * 60000).toISOString() : null,
     latestEnd: isFlexible && Number.isFinite(endMs) ? new Date(endMs + range * 60000).toISOString() : null,
     source: "calendar-auto",
+    sourceEventStart: event.start ?? null,
+    sourceEventEnd: event.end ?? null,
     ...outlookTaskMetadata(event),
     sourceEventId: event.id ?? null,
     sourceCalendarId: event.calendarId ?? null,

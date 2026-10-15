@@ -1,3 +1,6 @@
+import { energyPolicy } from "./domain/adaptive-planning.js";
+import { sessionOptions } from "./domain/session-preferences.js";
+import { exclusionReason } from "./domain/planning-eligibility.js";
 import { refreshImportedTaskMetadata } from "./domain/project-outlook.js";
 import { calendarViewFeature } from "./features-calendar.js";
 import { calendarRange } from "./domain/calendar.js";
@@ -81,7 +84,7 @@ const rankedCandidates = (state, now = Date.now()) => {
   const energy = energyValue(state);
   const available = freeWindowMinutes(state, now);
   const maxChunk = energy <= 2 ? Math.min(available, 10) : energy <= 4 ? Math.min(available, 20) : available;
-  const active = taskItems(state).filter((task) => task.status !== "completed");
+  const active = taskItems(state).filter(task => !exclusionReason(task, now));
   const preferred = energy <= 2
     ? active.filter((task) => asNumber(task.difficulty, 3) <= 2 || asNumber(task.estimateMinutes, 30) <= 15)
     : active;
@@ -251,13 +254,14 @@ export const features = {
         return setFeatureState(state, "energy", {
           ...current,
           value: Math.min(10, Math.max(1, asNumber(payload?.value, current.value ?? 5))),
-          updatedAt: new Date().toISOString()
+          updatedAt: new Date().toISOString(),
+          needsRefresh: false
         });
       }
       if (!current.updatedAt) return state;
       const age = Date.now() - new Date(current.updatedAt).getTime();
       if (age <= asNumber(current.expiresAfterMinutes, 180) * 60000) return state;
-      return setFeatureState(state, "energy", { ...current, value: 5, updatedAt: null });
+      return setFeatureState(state, "energy", { ...current, needsRefresh: true });
     },
     ui: {
       zone: "main",
@@ -420,7 +424,7 @@ export const features = {
     when: ["session:start", "session:pause", "session:completed", "session:set-mode"],
     run: ({ state, event, payload }) => {
       const current = featureState(state, "flow");
-      if (event === "session:start") return setFeatureState(state, "flow", { active: true, mode: payload?.mode ?? "free", taskId: payload?.taskId ?? null, startedAt: Date.now(), endedAt: null, suggestedMinutes: payload?.suggestedMinutes ?? null });
+      if (event === "session:start") return setFeatureState(state, "flow", { active: true, mode: payload?.mode ?? "free", taskId: payload?.taskId ?? null, startedAt: Date.now(), endedAt: null, suggestedMinutes: Math.min(Number(payload?.suggestedMinutes) || Infinity, energyPolicy(state.features?.energy?.value, sessionOptions(state)).workMinutes) });
       if (event === "session:set-mode") return setFeatureState(state, "flow", { ...current, mode: payload?.mode ?? "free" });
       if (event === "session:pause" || event === "session:completed") {
         const endedAt = Date.now();

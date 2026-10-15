@@ -1,3 +1,5 @@
+import { sessionPreferenceFeatures } from "../features-session-preferences.js";
+import { cliAiFeatures } from "../features-cli-ai.js";
 import { features as baseFeatures } from "../features.js";
 import { advancedFeatures } from "../features-advanced.js";
 import { featureOverrides } from "../features-overrides.js";
@@ -43,6 +45,8 @@ export const features = Object.freeze(
     ...itemInspectorFeatures,
     ...quickSearchFeatures,
     ...localAiFeatures,
+    ...cliAiFeatures,
+    ...sessionPreferenceFeatures,
     ...itemPopupOverrides,
     ...guidedFeatures,
     ...metafocusFeatures

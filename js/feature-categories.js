@@ -12,11 +12,11 @@ export const featureCategories = Object.freeze({
   tasks: { id: "tasks", path: "tasks", title: "Tâches", icon: "✅", order: 20, features: ["taskWorkspace", "tasks", "taskDecomposition", "taskEditor"] },
   projects: { id: "projects", path: "projects", title: "Projets", icon: "🗂️", order: 25, features: ["projects"] },
   mindmap: { id: "mindmap", path: "mindmap", title: "Mindmap", icon: "🌳", order: 27, features: ["taskMindmap"] },
-  day: { id: "day", path: "day", title: "Journée", icon: "🧭", order: 30, features: ["adaptiveSchedule", "flow"] },
+  day: { id: "day", path: "day", title: "Journée", icon: "🧭", order: 30, features: ["sessionPreferences", "adaptiveSchedule", "flow"] },
   progress: { id: "progress", path: "progress", title: "Progression", icon: "🏆", order: 40, features: ["game", "stats", "achievements"] },
   settings: {
     id: "settings", path: "settings", title: "Réglages & connexions", icon: "⚙️", order: 50,
-    features: ["microsoftAuth", "localAi", "schedulePreferences", "quickSearch", "spotify", "ai", "settings", "notifications", "install", "dataManagement", "diagnostics"]
+    features: ["microsoftAuth", "localAi", "cliAi", "schedulePreferences", "quickSearch", "spotify", "ai", "settings", "notifications", "install", "dataManagement", "diagnostics"]
   }
 });
 

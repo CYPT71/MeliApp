@@ -1,15 +1,9 @@
+import { exclusionReason, remainingWork, taskWindow } from "./planning-eligibility.js";
 import { buildAdaptiveDayPlan, energyPolicy } from "./adaptive-planning.js";
 
 const MINUTE = 60_000;
-const DAY = 24 * 60 * MINUTE;
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const number = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
-
-const remainingMinutes = (task) => {
-  const estimate = Math.max(5, number(task?.estimateMinutes, 25));
-  const progress = clamp(number(task?.progress, 0), 0, 1);
-  return Math.max(5, Math.ceil((estimate * (1 - progress)) / 5) * 5);
-};
 
 const clockParts = (value, fallback) => {
   const match = /^(\d{1,2}):(\d{2})$/.exec(String(value ?? ""));
@@ -38,7 +32,8 @@ export const buildAdaptiveWeekPlan = ({
   dayStart = "08:00",
   dayEnd = "23:00",
   bufferMinutes = 10,
-  variant = 0
+  variant = 0,
+  sessionPreferences = {}
 } = {}) => {
   const now = new Date(from);
   const firstDay = startOfLocalDay(now);
@@ -46,18 +41,19 @@ export const buildAdaptiveWeekPlan = ({
   const endClock = clockParts(dayEnd, [23, 0]);
   const horizon = clamp(Math.round(number(days, 7)), 1, 14);
   let pending = (tasks ?? [])
-    .filter((task) => task && task.status !== "completed" && !task.parentTaskId)
-    .map((task) => ({ ...task, progress: 0, estimateMinutes: remainingMinutes(task) }));
+    .filter((task) => task && !exclusionReason(task, now.getTime()) && !task.parentTaskId)
+    .map((task) => ({ ...task, progress: 0, estimateMinutes: remainingWork(task) }));
   const blocks = [];
   const dayPlans = [];
 
   for (let index = 0; index < horizon; index += 1) {
-    const day = new Date(firstDay.getTime() + index * DAY);
+    const day = new Date(firstDay);
+    day.setDate(firstDay.getDate() + index);
     let start = atClock(day, startClock);
     const end = atClock(day, endClock);
     if (index === 0 && now > start) start = now;
     if (end <= start) {
-      dayPlans.push({ date: day.toISOString(), blocks: [], policy: energyPolicy(energy) });
+      dayPlans.push({ date: day.toISOString(), blocks: [], policy: energyPolicy(energy, sessionPreferences) });
       continue;
     }
 
@@ -68,6 +64,7 @@ export const buildAdaptiveWeekPlan = ({
       from: start,
       to: end,
       bufferMinutes,
+      sessionPreferences,
       variant: variant + index * 17
     });
     dayPlans.push({ date: day.toISOString(), ...plan });
@@ -86,10 +83,11 @@ export const buildAdaptiveWeekPlan = ({
   return {
     variant,
     days: horizon,
-    policy: energyPolicy(energy),
+    policy: energyPolicy(energy, sessionPreferences),
     blocks: blocks.sort((a, b) => new Date(a.startIso) - new Date(b.startIso)),
     dayPlans,
-    unscheduled: pending.map((task) => ({ ...task, remainingMinutes: Number(task.estimateMinutes ?? 0) })),
+    unscheduled: pending.map((task) => ({ ...task, remainingMinutes: Number(task.estimateMinutes ?? 0), reason: taskWindow(task).end < new Date(from).getTime() + horizon * 86400000 ? "Travail restant incompatible avec l’échéance ou la fenêtre" : "Capacité de la semaine insuffisante" })),
+    excluded: (tasks ?? []).filter(task => task && exclusionReason(task, now.getTime())).map(task => ({ id: task.id, title: task.title, reason: exclusionReason(task, now.getTime()) })),
     generatedAt: new Date().toISOString()
   };
 };
