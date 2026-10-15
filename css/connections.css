@@ -1,0 +1,95 @@
+.connection-panel {
+  gap: 1rem;
+}
+
+.connection-panel__hero {
+  display: flex;
+  align-items: center;
+  gap: .9rem;
+  padding: .95rem;
+  border-radius: 1.1rem;
+  background: rgba(255,255,255,.055);
+  border: 1px solid rgba(255,255,255,.08);
+}
+
+.connection-panel__icon {
+  width: 2.8rem;
+  height: 2.8rem;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: .9rem;
+  font-size: 1.45rem;
+  background: rgba(255,255,255,.09);
+}
+
+.connection-button {
+  width: 100%;
+  min-height: 50px;
+}
+
+.connection-message {
+  margin: 0;
+  padding: .75rem .85rem;
+  border-radius: .9rem;
+  background: rgba(255, 190, 70, .08);
+  border: 1px solid rgba(255, 190, 70, .18);
+}
+
+.ai-connections {
+  gap: 1rem;
+}
+
+.ai-connect-grid {
+  display: grid;
+  gap: .8rem;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+}
+
+.ai-connect-card {
+  display: grid;
+  gap: .75rem;
+  padding: 1rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(255,255,255,.08);
+  background: rgba(0,0,0,.14);
+  transition: transform .16s ease, border-color .16s ease, background .16s ease;
+}
+
+.ai-connect-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(255,255,255,.15);
+}
+
+.ai-connect-card.is-connected {
+  background: rgba(100, 190, 120, .07);
+  border-color: rgba(120, 210, 140, .22);
+}
+
+.ai-connect-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .6rem;
+}
+
+.connection-pill {
+  padding: .25rem .5rem;
+  border-radius: 999px;
+  font-size: .75rem;
+  white-space: nowrap;
+  background: rgba(255,255,255,.08);
+  opacity: .75;
+}
+
+.connection-pill.is-connected {
+  opacity: 1;
+  background: rgba(120, 210, 140, .14);
+}
+
+.ai-connect-card p { margin: 0; }
+.ai-connect-card button { width: 100%; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-connect-card { transition: none; }
+}
