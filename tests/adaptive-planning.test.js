@@ -43,8 +43,10 @@ test("le plan respecte l'agenda et insère des pauses", () => {
   assert.equal(taskOverlap, false);
 });
 
-test("taskContext classe cours et perso", () => {
+test("taskContext classe explicitement et automatiquement cours/perso", () => {
   assert.equal(taskContext({ context: "cours" }), "cours");
   assert.equal(taskContext({ category: "study" }), "cours");
-  assert.equal(taskContext({}), "perso");
+  assert.equal(taskContext({ title: "Réviser le chapitre 4" }), "cours");
+  assert.equal(taskContext({ projectTitle: "Université", title: "Préparer la présentation" }), "cours");
+  assert.equal(taskContext({ title: "Faire les courses" }), "perso");
 });
