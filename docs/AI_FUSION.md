@@ -2,38 +2,39 @@
 
 MeliApp expose **une seule feature `ai`**. GPT, Claude et Gemini sont des fournisseurs derrière cette feature, pas trois assistants indépendants.
 
-## Fournisseurs principaux
+## Fournisseurs autorisés
 
-| ID | Fournisseur | API normalisée |
+| ID | Fournisseur | API |
 |---|---|---|
 | `openai` | GPT / OpenAI | Responses API |
 | `anthropic` | Claude / Anthropic | Messages API |
 | `gemini` | Gemini / Google | `models.generateContent` |
-| `custom` | Proxy / compatible | POST JSON configurable |
 
-Les noms de modèles restent configurables par l’utilisateur. MeliApp ne doit pas supposer qu’un nom de modèle restera éternellement valide, parce que les catalogues IA ont manifestement décidé de vivre comme des collections de baskets.
+Il n’existe **aucun endpoint compatible**, aucun proxy libre saisi par l’utilisateur et aucun quatrième fournisseur dynamique. Le service applique une allowlist stricte sur ces trois IDs. Les URLs d’API sont définies dans le code du service et ne sont pas configurables depuis l’interface.
+
+Les noms de modèles restent configurables par l’utilisateur afin de ne pas verrouiller MeliApp sur un catalogue de modèles qui changera probablement de nom avant que quelqu’un ait fini son café.
 
 ## Modes
 
 ### `single`
 
-Utilise la première IA active et configurée.
+Utilise la première IA active et configurée parmi GPT, Claude et Gemini.
 
 ### `fallback`
 
-Essaie les fournisseurs dans l’ordre. Une erreur HTTP, un timeout ou une réponse invalide fait passer au fournisseur suivant.
+Essaie les trois fournisseurs autorisés dans l’ordre. Une erreur HTTP, un timeout ou une réponse invalide fait passer au suivant.
 
 ### `fusion`
 
 1. construit un contexte minimal depuis le planner ;
-2. appelle en parallèle tous les fournisseurs actifs ;
+2. appelle en parallèle les IA activées ;
 3. conserve les réponses valides ;
 4. demande à `synthesisProvider` de fusionner ces réponses ;
 5. retourne une seule prochaine action ;
-6. si la synthèse échoue, conserve une réponse fournisseur valide ;
+6. si la synthèse échoue, conserve une réponse valide ;
 7. si tout échoue, la feature revient au fallback local.
 
-Le but n’est pas de faire voter trois modèles sur la couleur d’un bouton. La fusion sert uniquement lorsqu’une recommandation adaptative bénéficie de plusieurs propositions.
+`synthesisProvider` doit lui aussi être `openai`, `anthropic` ou `gemini`.
 
 ## Données envoyées
 
@@ -59,7 +60,7 @@ Elles sont :
 - effaçables fournisseur par fournisseur ;
 - jamais définies dans `js/config.js`.
 
-Comme l’application est statique, une clé utilisée directement dans le navigateur reste accessible à son propriétaire via les outils du navigateur. Pour une distribution publique à grande échelle, un proxy/backend avec authentification utilisateur serait préférable à une clé partagée côté frontend.
+Comme l’application est statique, une clé utilisée directement dans le navigateur reste accessible à son propriétaire via les outils du navigateur. Il ne faut donc jamais embarquer une clé partagée de production dans MeliApp.
 
 ## Contrat du service
 
@@ -88,4 +89,4 @@ Résultat :
 }
 ```
 
-La feature UI ne connaît donc pas les formats de réponse propres à chaque API. Cette absurdité reste confinée dans le service, là où elle peut souffrir en silence.
+La feature UI ne connaît pas les formats de réponse propres à chaque API. Les trois bizarreries propriétaires restent confinées dans le service, là où elles peuvent se chamailler sans contaminer le reste de l’application.

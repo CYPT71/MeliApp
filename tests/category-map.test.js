@@ -5,17 +5,20 @@ import { featureCategories, applyFeatureCategories } from "../js/feature-categor
 
 const expected = {
   calendar: ["microsoftAuth", "outlookSync", "calendarView", "manualSync"],
-  organize: ["tasks", "taskEditor", "projects"],
-  focus: ["flow"],
+  day: ["tasks", "taskEditor", "projects", "flow"],
   progress: ["game", "stats", "achievements"],
-  integrations: ["spotify", "ai"],
-  settings: ["settings", "notifications", "install", "dataManagement", "diagnostics"]
+  settings: ["spotify", "ai", "settings", "notifications", "install", "dataManagement", "diagnostics"]
 };
 
 test("production categories keep coherent features together", () => {
   for (const [name, names] of Object.entries(expected)) {
     assert.deepEqual(featureCategories[name].features, names);
   }
+});
+
+test("navigation is intentionally limited to four product categories", () => {
+  assert.equal(Object.keys(featureCategories).length, 4);
+  assert.deepEqual(Object.keys(featureCategories), ["calendar", "day", "progress", "settings"]);
 });
 
 test("category routes are unique", () => {
