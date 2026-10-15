@@ -1,11 +1,39 @@
 {
+  "id": "./",
   "name": "MeliApp / FlowQuest",
   "short_name": "MeliApp",
   "description": "PWA adaptative de planification, focus et gamification.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
+  "orientation": "any",
   "background_color": "#101114",
   "theme_color": "#111111",
-  "lang": "fr"
+  "lang": "fr",
+  "categories": ["productivity", "education", "lifestyle"],
+  "icons": [
+    {
+      "src": "./assets/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Mes tâches",
+      "short_name": "Tâches",
+      "url": "./#/tasks"
+    },
+    {
+      "name": "Focus",
+      "short_name": "Focus",
+      "url": "./#/focus"
+    },
+    {
+      "name": "Préférences",
+      "short_name": "Réglages",
+      "url": "./#/settings"
+    }
+  ]
 }
