@@ -5,6 +5,35 @@ const clone = (value) => {
   return JSON.parse(JSON.stringify(value));
 };
 
+const validatePage = (name, page) => {
+  if (page === undefined || page === false) return;
+  if (page === true) return;
+
+  if (!page || typeof page !== "object" || Array.isArray(page)) {
+    throw new TypeError(`Feature ${name}.page must be true, false or an object`);
+  }
+
+  if (page.path !== undefined && typeof page.path !== "string") {
+    throw new TypeError(`Feature ${name}.page.path must be a string`);
+  }
+
+  if (page.title !== undefined && typeof page.title !== "string") {
+    throw new TypeError(`Feature ${name}.page.title must be a string`);
+  }
+
+  if (page.icon !== undefined && typeof page.icon !== "string") {
+    throw new TypeError(`Feature ${name}.page.icon must be a string`);
+  }
+
+  if (page.nav !== undefined && typeof page.nav !== "boolean") {
+    throw new TypeError(`Feature ${name}.page.nav must be a boolean`);
+  }
+
+  if (page.order !== undefined && !Number.isFinite(Number(page.order))) {
+    throw new TypeError(`Feature ${name}.page.order must be numeric`);
+  }
+};
+
 export const validateFeature = (name, feature) => {
   if (!feature || typeof feature !== "object") {
     throw new TypeError(`Feature ${name} must be an object`);
@@ -22,6 +51,7 @@ export const validateFeature = (name, feature) => {
     throw new TypeError(`Feature ${name}.when must be an array`);
   }
 
+  validatePage(name, feature.page);
   return feature;
 };
 
