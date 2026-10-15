@@ -1,1 +1,0 @@
-export const CATEGORY_SCHEMA_VERSION = 1;
