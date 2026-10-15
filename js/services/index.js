@@ -10,7 +10,12 @@ export const createServices = () => ({
   storage: createIndexedDbStorage(),
   notifications: createNotificationService(),
   install: createInstallService(),
-  outlook: createOutlookService({ clientId: config.microsoftClientId, tenant: config.microsoftTenant }),
+  outlook: createOutlookService({
+    clientId: config.microsoftClientId,
+    tenant: config.microsoftTenant,
+    authMode: config.microsoftAuthMode,
+    scopes: config.microsoftScopes
+  }),
   spotify: createSpotifyService({ clientId: config.spotifyClientId }),
   ai: createAiService()
 });
