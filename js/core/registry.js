@@ -13,6 +13,10 @@ import { calendarTaskFeatures } from "../features-calendar-tasks.js";
 import { taskWorkspaceFeatures } from "../features-tasks-workspace.js";
 import { taskContextFeatures } from "../features-task-context.js";
 import { projectFeatures } from "../features-projects.js";
+import { itemInspectorFeatures } from "../features-item-inspector.js";
+import { quickSearchFeatures } from "../features-quick-search.js";
+import { localAiFeatures } from "../features-local-ai.js";
+import { itemPopupOverrides } from "../features-item-popup-overrides.js";
 import { applyFeatureCategories, featureCategories } from "../feature-categories.js";
 
 export const features = Object.freeze(
@@ -31,7 +35,11 @@ export const features = Object.freeze(
     ...calendarTaskFeatures,
     ...taskWorkspaceFeatures,
     ...taskContextFeatures,
-    ...projectFeatures
+    ...projectFeatures,
+    ...itemInspectorFeatures,
+    ...quickSearchFeatures,
+    ...localAiFeatures,
+    ...itemPopupOverrides
   }, featureCategories)
 );
 
