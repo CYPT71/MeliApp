@@ -8,7 +8,7 @@ const cloneCategory = (category) => ({
 });
 
 export const featureCategories = Object.freeze({
-  calendar: { id: "calendar", path: "calendar", title: "Agenda", icon: "🗓️", order: 10, features: ["microsoftAuth", "outlookSync", "calendarView", "manualSync"] },
+  calendar: { id: "calendar", path: "calendar", title: "Agenda", icon: "🗓️", order: 10, features: ["outlookSync", "calendarView", "manualSync"] },
   tasks: { id: "tasks", path: "tasks", title: "Tâches", icon: "✅", order: 20, features: ["taskWorkspace", "tasks", "taskDecomposition", "taskEditor"] },
   projects: { id: "projects", path: "projects", title: "Projets", icon: "🗂️", order: 25, features: ["projects"] },
   mindmap: { id: "mindmap", path: "mindmap", title: "Mindmap", icon: "🌳", order: 27, features: ["taskMindmap"] },
@@ -16,7 +16,7 @@ export const featureCategories = Object.freeze({
   progress: { id: "progress", path: "progress", title: "Progression", icon: "🏆", order: 40, features: ["game", "stats", "achievements"] },
   settings: {
     id: "settings", path: "settings", title: "Réglages & connexions", icon: "⚙️", order: 50,
-    features: ["localAi", "schedulePreferences", "quickSearch", "spotify", "ai", "settings", "notifications", "install", "dataManagement", "diagnostics"]
+    features: ["microsoftAuth", "localAi", "schedulePreferences", "quickSearch", "spotify", "ai", "settings", "notifications", "install", "dataManagement", "diagnostics"]
   }
 });
 
