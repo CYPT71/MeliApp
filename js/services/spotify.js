@@ -9,6 +9,15 @@ const SCOPES = [
 ];
 const TOKEN_URL = "https://accounts.spotify.com/api/token";
 
+const spotifyHttpError = ({ status, path, data }) => {
+  const rawMessage = data?.error?.message ?? data?.error_description ?? data?.error ?? "Réponse Spotify sans détail";
+  const error = new Error(`SPOTIFY_HTTP_${status}|${path}|${String(rawMessage)}`);
+  error.status = status;
+  error.path = path;
+  error.spotifyMessage = String(rawMessage);
+  return error;
+};
+
 export const createSpotifyService = ({ clientId }) => {
   const normalizedClientId = String(clientId ?? "").trim();
   const configured = Boolean(normalizedClientId);
@@ -71,27 +80,43 @@ export const createSpotifyService = ({ clientId }) => {
 
   const request = async (path, options = {}, retry = true) => {
     assertConfigured();
-    if (!token) throw new Error("Spotify non connecté");
-    const response = await fetch(`https://api.spotify.com/v1${path}`, {
-      ...options,
-      headers: {
-        Accept: "application/json",
-        Authorization: `Bearer ${token}`,
-        ...(options.headers ?? {})
-      }
-    });
-    if (response.status === 401 && retry && refreshToken) {
-      await renew();
-      return request(path, options, false);
+    if (!token) throw new Error("SPOTIFY_NOT_CONNECTED");
+
+    let response;
+    try {
+      response = await fetch(`https://api.spotify.com/v1${path}`, {
+        ...options,
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+          ...(options.headers ?? {})
+        }
+      });
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      throw new Error(`SPOTIFY_NETWORK|${path}|${detail}`);
     }
+
+    if (response.status === 401 && retry && refreshToken) {
+      try {
+        await renew();
+        return request(path, options, false);
+      } catch (error) {
+        token = null;
+        sessionStorage.removeItem(`${KEY}:access_token`);
+        const detail = error instanceof Error ? error.message : String(error);
+        throw new Error(`SPOTIFY_SESSION_EXPIRED|${path}|${detail}`);
+      }
+    }
+
     if (response.status === 401) {
       token = null;
       sessionStorage.removeItem(`${KEY}:access_token`);
-      throw new Error("Session Spotify expirée");
     }
     if (response.status === 204) return null;
+
     const data = await response.json().catch(() => null);
-    if (!response.ok) throw new Error(data?.error?.message ?? "Erreur Spotify");
+    if (!response.ok) throw spotifyHttpError({ status: response.status, path, data });
     return data;
   };
 
