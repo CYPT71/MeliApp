@@ -1,6 +1,15 @@
-import { features } from "../features.js";
+import { features as baseFeatures } from "../features.js";
+import { advancedFeatures } from "../features-advanced.js";
+import { featureOverrides } from "../features-overrides.js";
+import { applyFeatureCategories, featureCategories } from "../feature-categories.js";
 
-export { features };
+export const features = Object.freeze(
+  applyFeatureCategories({
+    ...baseFeatures,
+    ...advancedFeatures,
+    ...featureOverrides
+  }, featureCategories)
+);
 
 const clone = (value) => {
   if (typeof structuredClone === "function") return structuredClone(value);
@@ -36,6 +45,29 @@ const validatePage = (name, page) => {
   }
 };
 
+const validateCategory = (name, category) => {
+  if (category === undefined || category === false) return;
+  if (typeof category === "string") return;
+
+  if (!category || typeof category !== "object" || Array.isArray(category)) {
+    throw new TypeError(`Feature ${name}.category must be a string, false or an object`);
+  }
+
+  for (const key of ["id", "path", "title", "icon"]) {
+    if (category[key] !== undefined && typeof category[key] !== "string") {
+      throw new TypeError(`Feature ${name}.category.${key} must be a string`);
+    }
+  }
+
+  if (category.nav !== undefined && typeof category.nav !== "boolean") {
+    throw new TypeError(`Feature ${name}.category.nav must be a boolean`);
+  }
+
+  if (category.order !== undefined && !Number.isFinite(Number(category.order))) {
+    throw new TypeError(`Feature ${name}.category.order must be numeric`);
+  }
+};
+
 export const validateFeature = (name, feature) => {
   if (!feature || typeof feature !== "object") {
     throw new TypeError(`Feature ${name} must be an object`);
@@ -59,6 +91,7 @@ export const validateFeature = (name, feature) => {
   }
 
   validatePage(name, feature.page);
+  validateCategory(name, feature.category);
   return feature;
 };
 

@@ -75,3 +75,22 @@ export const consumePkceCallback = async ({ tokenUrl, clientId, storageKey, extr
   history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
   return data;
 };
+
+export const refreshPublicClientToken = async ({ tokenUrl, clientId, refreshToken, scopes = [], extra = {} }) => {
+  if (!refreshToken || !clientId) return null;
+  const body = new URLSearchParams({
+    client_id: clientId,
+    grant_type: "refresh_token",
+    refresh_token: refreshToken,
+    ...(scopes.length ? { scope: scopes.join(" ") } : {}),
+    ...extra
+  });
+  const response = await fetch(tokenUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error_description ?? data.error ?? "Échec du rafraîchissement OAuth");
+  return data;
+};

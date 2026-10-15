@@ -23,12 +23,18 @@ const appendRenderable = (host, rendered) => {
   host.append(document.createTextNode(String(rendered)));
 };
 
-const renderNavigation = ({ root, registry, state, route }) => {
-  const pages = featurePages(registry).filter(({ feature, page }) => {
-    if (!page.nav) return false;
+const pageIsVisible = ({ names, registry, state, route }) =>
+  names.some((name) => {
+    const feature = registry[name];
+    if (!feature || typeof feature.ui?.render !== "function") return false;
     if (!(feature.enabled?.(state) ?? true)) return false;
-    return feature.ui?.visible?.({ state, route }) ?? true;
+    return feature.ui?.visible?.({ state, route, feature: name }) ?? true;
   });
+
+const renderNavigation = ({ root, registry, state, route }) => {
+  const pages = featurePages(registry).filter(({ names, page }) =>
+    page.nav && pageIsVisible({ names, registry, state, route })
+  );
 
   if (pages.length === 0) return;
 
@@ -54,6 +60,29 @@ const renderNavigation = ({ root, registry, state, route }) => {
   root.append(nav);
 };
 
+const renderPageHeader = ({ root, activePage }) => {
+  if (!activePage) return;
+
+  const header = document.createElement("header");
+  header.className = "category-header";
+
+  const title = document.createElement("h1");
+  title.className = "feature-page__title";
+  title.textContent = activePage.page.icon
+    ? `${activePage.page.icon} ${activePage.page.title}`
+    : activePage.page.title;
+
+  header.append(title);
+  if (activePage.names.length > 1) {
+    const meta = document.createElement("p");
+    meta.className = "muted category-header__meta";
+    meta.textContent = `${activePage.names.length} modules réunis sur cette page`;
+    header.append(meta);
+  }
+
+  root.append(header);
+};
+
 export const renderFeatures = ({ root, registry, state, dispatch, route = "" }) => {
   clear(root);
   renderNavigation({ root, registry, state, route });
@@ -64,14 +93,16 @@ export const renderFeatures = ({ root, registry, state, dispatch, route = "" }) 
   if (route && !activePage) {
     const notFound = document.createElement("section");
     notFound.className = "empty-state";
-    notFound.innerHTML = "<h2>Page introuvable</h2><p>Cette route ne correspond à aucune feature.</p><p><a href=\"#\">Retour à l’accueil</a></p>";
+    notFound.innerHTML = "<h2>Page introuvable</h2><p>Cette route ne correspond à aucune catégorie ou feature.</p><p><a href=\"#\">Retour à l’accueil</a></p>";
     root.append(notFound);
     return;
   }
 
+  if (route) renderPageHeader({ root, activePage });
+
   const visible = entries(registry)
-    .filter(([name, feature]) => typeof feature.ui?.render === "function")
-    .filter(([name, feature]) => !feature.enabled || feature.enabled(state))
+    .filter(([, feature]) => typeof feature.ui?.render === "function")
+    .filter(([, feature]) => !feature.enabled || feature.enabled(state))
     .filter(([name, feature]) => feature.ui?.visible?.({ state, route, feature: name }) ?? true)
     .filter(([name, feature]) => isFeatureVisibleOnRoute({ name, feature, route }))
     .sort(([, a], [, b]) => Number(a.ui?.order ?? 100) - Number(b.ui?.order ?? 100));
@@ -80,14 +111,13 @@ export const renderFeatures = ({ root, registry, state, dispatch, route = "" }) 
     const section = document.createElement("section");
     section.dataset.feature = name;
     section.dataset.zone = feature.ui.zone ?? "main";
-    section.className = feature.page ? "feature feature--page" : "feature";
+    section.className = route ? "feature feature--page-section" : "feature";
 
-    const page = activePage?.name === name ? activePage.page : null;
-    if (page) {
-      const title = document.createElement("h1");
-      title.className = "feature-page__title";
-      title.textContent = page.icon ? `${page.icon} ${page.title}` : page.title;
-      section.append(title);
+    if (route && activePage?.names.length > 1) {
+      const subtitle = document.createElement("h2");
+      subtitle.className = "feature-section__title";
+      subtitle.textContent = feature.description ?? name;
+      section.append(subtitle);
     }
 
     appendRenderable(section, feature.ui.render({ state, dispatch, feature: name, route }));
@@ -99,6 +129,13 @@ export const renderFeatures = ({ root, registry, state, dispatch, route = "" }) 
     const empty = document.createElement("div");
     empty.className = "empty-state";
     empty.innerHTML = "<h2>Aucune mission à afficher</h2><p>Le noyau tourne, les features décideront du reste.</p>";
+    root.append(empty);
+  }
+
+  if (renderedCount === 0 && route) {
+    const empty = document.createElement("section");
+    empty.className = "empty-state";
+    empty.innerHTML = "<h2>Rien à afficher ici</h2><p>Les modules de cette catégorie sont actuellement masqués ou désactivés.</p>";
     root.append(empty);
   }
 };

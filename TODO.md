@@ -1,242 +1,263 @@
-# MeliApp / FlowQuest — TODO de développement
+# MeliApp / FlowQuest — TODO
 
-> État réel du projet après implémentation du registre fonctionnel et des premières features produit.
+> État réel du projet. Une case cochée correspond à du code présent dans le dépôt. On essaie ainsi d’éviter la tradition ancestrale du README qui décrit un produit trois versions en avance sur la réalité.
 
 ## 0. Architecture
 
 - [x] Full static GitHub Pages.
 - [x] HTML/CSS/JavaScript ES Modules.
-- [x] Registre runtime unique `features`.
-- [x] État initial dérivé automatiquement de `feature.state`.
+- [x] Registre runtime unique de features.
+- [x] Registre extensible par composition `baseFeatures + advancedFeatures + overrides`.
+- [x] État initial dérivé de `feature.state`.
 - [x] Runner générique par événements.
-- [x] Isolation des erreurs par feature.
-- [x] Dispatch unique.
+- [x] `dispatch` unique et queue d’exécution.
+- [x] Isolation des erreurs feature par feature.
 - [x] Persistance IndexedDB.
-- [x] Actions UI par délégation `data-action`.
-- [x] Pages déclaratives via `page: true` ou `page: { ... }`.
-- [x] Navigation et routes hash générées automatiquement.
-- [x] `ui.visible` et `ui.order` pris en charge.
-- [x] Services injectés au lieu d’appels réseau dans le domaine.
-- [x] Aucun secret développeur prévu dans le frontend.
+- [x] Actions UI via délégation `data-action`.
+- [x] Pages déclaratives via `page`.
+- [x] Catégories déclaratives via `category`.
+- [x] Une feature peut rejoindre une catégorie avec `category: "nom"`.
+- [x] Une catégorie peut aussi être détaillée avec `id/path/title/icon/order`.
+- [x] Plusieurs features d’une même catégorie sont rendues sur la même page.
+- [x] Une seule entrée de navigation est générée par catégorie.
+- [x] `feature-categories.js` évite de répéter les métadonnées de catégorie.
+- [x] Une catégorie déclarée directement sur une feature prend priorité.
+- [x] `ui.visible`, `ui.order`, état et actions sans câblage métier dans le core.
+- [x] Services injectés pour tous les effets externes.
+- [x] Tests unitaires avec `node:test`.
+- [x] CI/CD GitHub Actions vers GitHub Pages.
 
-## 1. Registre de features produit
+## 1. Navigation produit
 
-Implémenté dans `js/features.js`.
+- [x] Accueil minimal : énergie + mission actuelle.
+- [x] `#/calendar` : Outlook + synchronisation + agenda.
+- [x] `#/organize` : tâches + éditeur + projets/Boss.
+- [x] `#/focus` : modes de session.
+- [x] `#/progress` : XP + statistiques + succès.
+- [x] `#/integrations` : Spotify + IA.
+- [x] `#/settings` : préférences + notifications + installation + données + diagnostic.
+- [x] Raccourcis PWA alignés sur les nouvelles catégories.
+- [x] En-tête unique de catégorie + sous-sections par feature.
+- [ ] Tester la densité visuelle réelle sur petit écran Android.
+- [ ] Ajouter éventuellement des ancres internes de section si une catégorie devient trop longue.
 
-- [x] `microsoftAuth`.
-- [x] `outlookSync`.
-- [x] `calendarView`.
-- [x] `manualSync`.
-- [x] `energy`.
-- [x] `tasks`.
-- [x] `planner`.
-- [x] `now`.
-- [x] `flow`.
-- [x] `game`.
-- [x] `spotify`.
-- [x] `ai`.
-- [x] `notifications`.
-- [x] `install`.
+## 2. Outlook = calendrier
 
-## 2. Outlook obligatoire
-
-- [x] Service OAuth Authorization Code + PKCE côté navigateur.
+- [x] Outlook traité comme calendrier, pas comme identité métier MeliApp.
+- [x] Authorization Code + PKCE, client public.
 - [x] Aucun `client_secret`.
-- [x] Restauration de session depuis `sessionStorage`.
-- [x] Lecture Microsoft Graph `calendarView`.
+- [x] Scope `Calendars.ReadWrite`.
+- [x] Lecture `calendarView` Microsoft Graph.
 - [x] Normalisation des événements.
-- [x] Synchronisation au démarrage / reprise / manuel.
-- [x] Page Outlook.
-- [x] Page Agenda.
-- [ ] Renseigner le vrai `microsoftClientId` dans `js/config.js`.
+- [x] Synchronisation au démarrage, reprise et manuelle.
+- [x] Refresh OAuth quand disponible.
+- [x] Écriture d’un bloc de focus depuis la mission courante.
+- [x] Toutes les fonctions Outlook regroupées dans la catégorie Agenda.
+- [ ] Renseigner `microsoftClientId` dans `js/config.js`.
 - [ ] Enregistrer l’URL GitHub Pages comme redirect URI SPA dans Entra.
-- [ ] Tester connexion et consentement sur le tenant cible.
-- [ ] Tester comptes personnels Microsoft + comptes organisation si nécessaire.
-- [ ] Gérer proprement refresh/expiration longue durée si le comportement SPA l’exige.
+- [ ] Valider consentement sur comptes personnels et tenant cible.
+- [ ] Tester les politiques d’entreprise qui bloquent `Calendars.ReadWrite`.
 
-## 3. Énergie
+## 3. Énergie et préférences
 
-- [x] Échelle 1 à 10.
+- [x] Énergie 1 à 10.
 - [x] Seuil faible énergie.
-- [x] Timestamp de dernière mise à jour.
-- [x] Expiration automatique.
-- [x] Recalcul du planner sur changement.
-- [x] Adaptation forte des chunks à faible énergie.
-- [x] UI home.
-- [ ] Ajouter préférences utilisateur pour le seuil et la durée d’expiration.
+- [x] Expiration de l’énergie.
+- [x] Recalcul du planner.
+- [x] Adaptation des chunks à faible énergie.
+- [x] Seuil énergie configurable.
+- [x] Expiration configurable.
+- [x] Marge agenda configurable dans l’état.
+- [x] Mode de travail par défaut configurable.
+- [x] Début / fin de journée enregistrés.
+- [x] Fenêtre silencieuse pour rappels.
+- [ ] Faire utiliser `calendarBufferMinutes`, `dayStart` et `dayEnd` directement par tous les calculs du planner.
 
-## 4. Tâches
+## 4. Tâches / Organisation
 
 - [x] Création.
-- [x] Édition simple.
+- [x] Mise à jour.
 - [x] Suppression.
 - [x] Complétion.
 - [x] Report.
-- [x] Progression interne.
+- [x] Progression.
 - [x] Deadline.
 - [x] Difficulté.
 - [x] Importance.
 - [x] Durée estimée.
-- [x] Découpage activable.
-- [x] Page dédiée générée depuis la feature.
-- [ ] Remplacer l’édition `prompt()` par un formulaire inline ou modal déclaratif.
-- [ ] Ajouter projets / Boss explicites.
+- [x] Découpage.
+- [x] Éditeur détaillé inline.
+- [x] Association à un projet/Boss.
+- [x] Tâches + éditeur + Boss regroupés sur Organisation.
+- [ ] Retirer définitivement l’ancien fallback d’édition `prompt()`.
+- [ ] Ajouter dépendances entre tâches uniquement si besoin produit réel.
 
-## 5. Planner local
+## 5. Projets / Boss
 
-- [x] Recalcul au démarrage.
-- [x] Recalcul à la reprise.
-- [x] Recalcul après sync calendrier.
-- [x] Recalcul après mutations de tâches.
-- [x] Recalcul après énergie.
-- [x] Score urgence / importance / énergie / contexte.
-- [x] Découpage selon fenêtre libre.
-- [x] Réduction manuelle en micro-action.
-- [x] Rotation vers une autre mission.
-- [x] Fonctionne sans IA.
-- [ ] Ajouter stabilité avancée pour éviter trop de changements de mission.
-- [ ] Ajouter préférence horaires de sommeil / plages interdites.
+- [x] Création de projet.
+- [x] Deadline projet.
+- [x] Association de tâches.
+- [x] Progression calculée depuis les tâches.
+- [x] Succès « Boss vaincu ».
+- [ ] Édition du nom/deadline depuis l’UI.
+- [ ] Barre de vie plus visuelle avec `prefers-reduced-motion` respecté.
 
-## 6. Écran « Maintenant »
+## 6. Planner local
 
-- [x] Une mission principale.
-- [x] Énergie affichée.
-- [x] Prochain événement Outlook affiché.
-- [x] Durée suggérée.
-- [x] `COMMENCER`.
-- [x] `Changer`.
-- [x] `Réduire`.
-- [x] `Reporter`.
-- [x] `Je suis bloqué`.
-- [x] Affichage de la dernière suggestion IA ou fallback local.
+- [x] Score urgence.
+- [x] Importance.
+- [x] adéquation énergie.
+- [x] adéquation au créneau.
+- [x] découpage automatique.
+- [x] changement manuel de mission.
+- [x] réduction en micro-action.
+- [x] fonctionnement sans IA.
+- [x] stabilité anti-zapping.
+- [x] changement volontaire respecté.
+- [ ] Utiliser toutes les préférences horaires dans le calcul des fenêtres libres.
+- [ ] Ajouter pénalité de changement de contexte par projet/catégorie si les tests utilisateurs le justifient.
 
-## 7. Libre / Flow / Focus / Pomodoro
+## 7. Écran Maintenant
 
-- [x] État de session.
-- [x] `startedAt` / `endedAt`.
-- [x] Temps calculé depuis les timestamps.
+- [x] Mission principale unique.
+- [x] Énergie.
+- [x] prochain événement Outlook.
+- [x] durée suggérée.
+- [x] COMMENCER.
+- [x] Changer.
+- [x] Réduire.
+- [x] Reporter.
+- [x] Je suis bloqué.
+- [x] Suggestion IA ou fallback local.
+- [x] Bouton pour bloquer la mission dans Outlook.
+
+## 8. Flow / Libre / Focus / Pomodoro
+
+- [x] Session avec timestamps.
 - [x] Mode Libre.
-- [x] Mode Flow.
-- [x] Mode Focus guidé.
-- [x] Mode Pomodoro optionnel.
-- [x] Aucune dépendance à un `setInterval` permanent pour la durée réelle.
-- [x] Page Focus.
-- [ ] Ajouter rafraîchissement visuel léger du chrono sans utiliser le timer comme source de vérité.
-- [ ] Ajouter rappel doux avant prochain événement Outlook.
+- [x] Flow.
+- [x] Focus guidé.
+- [x] Pomodoro optionnel.
+- [x] Calcul sans dépendre d’un `setInterval` persistant.
+- [x] historique de sessions.
+- [ ] Ajouter compteur visuel réactif tant que la page Focus est visible.
+- [ ] Ajouter reprise explicite d’une session interrompue.
 
-## 8. Gamification
+## 9. Gamification / Progression
 
-- [x] XP de démarrage.
-- [x] XP de session terminée.
-- [x] XP de tâche terminée.
-- [x] Niveaux.
-- [x] Aucun retrait d’XP en cas de report.
-- [ ] Projets / Boss avec HP/progression.
-- [ ] Animations de gain et niveau.
-- [ ] Récompenses cosmétiques.
+- [x] XP.
+- [x] niveaux.
+- [x] XP démarrage et complétion.
+- [x] aucun retrait d’XP en cas de report.
+- [x] Boss/projets.
+- [x] succès déclaratifs.
+- [x] statistiques de tâches, minutes et XP.
+- [x] progression regroupée sur une seule page.
+- [ ] Ajouter cosmétiques locaux seulement si cela reste non distrayant.
 
-## 9. Spotify optionnel
+## 10. Spotify optionnel
 
-- [x] OAuth PKCE côté navigateur.
-- [x] Aucun `client_secret`.
-- [x] Lecture sur appareil Spotify actif via Web API.
-- [x] Playlist faible énergie.
-- [x] Playlist focus.
-- [x] Playlist récupération.
-- [x] Playlist boss.
-- [x] Fallback manuel si lecture automatique impossible.
-- [x] Page Spotify.
-- [ ] Renseigner le vrai `spotifyClientId` dans `js/config.js`.
-- [ ] Enregistrer l’URL GitHub Pages dans le dashboard Spotify.
-- [ ] Tester avec compte Premium et appareil actif.
-- [ ] Ajouter sélecteur de playlists depuis l’API au lieu de saisir uniquement une URI.
+- [x] PKCE public client.
+- [x] lecture via Web API.
+- [x] refresh token.
+- [x] playlists low-energy/focus/recovery/boss.
+- [x] bibliothèque de playlists utilisateur.
+- [x] sélection depuis l’UI.
+- [x] fallback si lecture automatique échoue.
+- [x] low-energy déclenché seulement sous le seuil configuré.
+- [x] Spotify regroupé avec IA dans Connexions.
+- [ ] Renseigner `spotifyClientId`.
+- [ ] Enregistrer la redirect URI Spotify.
+- [ ] Tester Premium + appareil actif + restrictions Web API.
+- [ ] Ajouter deep-link natif Spotify en fallback sans device actif.
 
-## 10. IA optionnelle
+## 11. IA optionnelle
 
-- [x] Feature désactivable.
-- [x] Endpoint configurable.
-- [x] Modèle configurable.
-- [x] `Je suis bloqué`.
-- [x] Fallback local garanti.
-- [x] Timeout réseau.
-- [x] Aucune exécution de code provenant de l’IA.
-- [x] Page IA.
-- [ ] Définir le contrat final du fournisseur IA choisi.
-- [ ] Ajouter schéma JSON strict pour découpage/reformulation/explication.
-- [ ] Ajouter authentification IA si le fournisseur retenu propose OAuth adapté au navigateur.
+- [x] Désactivable.
+- [x] endpoint et modèle configurables.
+- [x] aide « Je suis bloqué ».
+- [x] fallback local.
+- [x] aucun code arbitraire exécuté depuis une réponse.
+- [ ] Ajouter schéma JSON strict pour recommandations multi-champs.
+- [ ] Vérifier/ajouter timeout `AbortController`.
+- [ ] Ajouter minimisation explicite des données envoyées.
+- [ ] Choisir le mécanisme d’authentification du fournisseur réellement retenu.
 
-## 11. Notifications
+## 12. Notifications
 
-- [x] Demande de permission déclarative.
-- [x] Page Notifications.
-- [x] Application utilisable si permission refusée.
-- [ ] Rappels de rendez-vous.
-- [ ] Rappels de reprise.
-- [ ] Notifications via Service Worker quand disponibles.
-- [ ] Ne pas promettre de push distant fiable sans backend.
+- [x] permission utilisateur.
+- [x] service Notification natif.
+- [x] rappels opportunistes avant événement.
+- [x] quiet hours.
+- [x] prévention des doublons.
+- [ ] Push distant fiable hors périmètre full static sans émetteur/backend.
+- [ ] Tester Android installé / iOS home-screen.
 
-## 12. PWA / installation
+## 13. PWA
 
 - [x] Manifest.
 - [x] Service Worker.
-- [x] Cache shell.
-- [x] Offline partiel.
-- [x] Capture `beforeinstallprompt` dans un service.
-- [x] Bouton Installer exposé par la feature.
-- [x] Aide iOS.
-- [ ] Ajouter icônes PWA définitives 192/512.
-- [ ] Ajouter stratégie d’update qui ne coupe pas une session Flow.
+- [x] cache offline du shell.
+- [x] cache des fichiers de catégories/features.
+- [x] bouton installation si supporté.
+- [x] aide iOS.
+- [x] icône SVG scalable.
+- [x] raccourcis Agenda / Organisation / Focus / Réglages.
+- [x] métadonnées standalone.
+- [ ] Ajouter PNG 192/512 si les audits ciblés l’exigent.
+- [ ] UX de mise à jour contrôlée pendant une session Flow.
 
-## 13. Tests
+## 14. Données / confidentialité locale
 
-- [x] Registre / état auto.
-- [x] Runner.
-- [x] Filtre événements / enabled.
-- [x] Isolation des erreurs.
-- [x] Pages automatiques.
-- [x] Scoring / scheduling / XP.
-- [x] Énergie.
-- [x] Création de tâche + planner.
-- [x] Complétion + XP.
-- [x] Session Flow.
-- [x] Fallback IA local.
-- [x] Sync Outlook avec service injecté fake.
-- [ ] Tests DOM des actions et rendus.
-- [ ] Tests E2E navigateur réels.
-- [ ] Tests OAuth E2E sur environnements de développement.
+- [x] IndexedDB.
+- [x] export JSON.
+- [x] import JSON.
+- [x] reset données produit.
+- [x] diagnostic local.
+- [x] effacement diagnostics.
+- [x] tokens OAuth exclus de l’export et stockés en `sessionStorage`.
+- [ ] Versionner formellement les migrations futures.
+- [ ] Validation JSON plus stricte à l’import.
 
-## 14. CI/CD
+## 15. Tests
 
-- [x] Vérification syntaxique.
-- [x] Tests unitaires Node natifs.
-- [x] Scan simple de secrets.
-- [x] Déploiement GitHub Pages sur `main`.
-- [ ] Ajouter test smoke navigateur avant déploiement.
-- [ ] Ajouter audit PWA/Lighthouse si utile.
+- [x] core / registry / runner.
+- [x] pages déclaratives.
+- [x] catégories déclaratives.
+- [x] déduplication d’une route de catégorie.
+- [x] priorité catégorie déclarée directement sur la feature.
+- [x] détection d’une feature placée dans deux catégories.
+- [x] scoring / scheduling / XP / reducers.
+- [x] features produit.
+- [x] projets / stabilité planner.
+- [x] Outlook mocké.
+- [x] Spotify mocké.
+- [x] reset données.
+- [ ] E2E navigateur Playwright ou équivalent.
+- [ ] tests OAuth réels avec configuration dédiée.
+- [ ] audit Lighthouse PWA/accessibilité après configuration Pages.
 
-## 15. Configuration requise avant MVP réellement utilisable
+## 16. Bloquants externes
 
-- [ ] Créer/configurer l’application Microsoft Entra.
-- [ ] Renseigner `config.microsoftClientId`.
-- [ ] Vérifier redirect URI GitHub Pages.
-- [ ] Activer GitHub Pages via GitHub Actions si ce n’est pas déjà fait.
-- [ ] Tester la PWA installée sur Android Chrome.
-- [ ] Tester le comportement en arrière-plan réel sur Android.
-- [ ] Tester Spotify avec le vrai client ID.
+- [ ] `microsoftClientId`.
+- [ ] Redirect URI Entra.
+- [ ] Consentement Microsoft Graph.
+- [ ] `spotifyClientId` si Spotify est activé.
+- [ ] Redirect URI Spotify.
+- [ ] Choix concret du fournisseur IA pour sortir du mode expérimental.
 
-## Definition of Done MVP
+## 17. Definition of Done MVP réaliste
 
-- [ ] Outlook réel fonctionne via PKCE.
-- [ ] Agenda réel visible.
-- [x] Tâches locales fonctionnelles.
-- [x] Planner local fonctionnel.
-- [x] Énergie prise en compte.
-- [x] Mode Libre fonctionnel.
-- [x] Mode Flow fonctionnel.
-- [x] Pomodoro optionnel.
-- [x] Gamification minimale.
-- [x] PWA installable lorsque supportée par le navigateur.
-- [x] Offline partiel.
-- [x] Spotify non requis.
-- [x] IA non requise.
-- [ ] Parcours complet validé sur téléphone réel.
+- [x] site statique servable directement ;
+- [x] features déclaratives ;
+- [x] catégories déclaratives sans câblage du routeur par feature ;
+- [x] planner fonctionnel sans IA ;
+- [x] Spotify optionnel ;
+- [x] Pomodoro optionnel ;
+- [x] Flow non interrompu arbitrairement ;
+- [x] état persisté localement ;
+- [x] export/import ;
+- [ ] Outlook testé avec vrais identifiants et vrai calendrier ;
+- [ ] pipeline de la branche finale vert ;
+- [ ] test manuel Android PWA ;
+- [ ] principaux parcours E2E navigateur.
