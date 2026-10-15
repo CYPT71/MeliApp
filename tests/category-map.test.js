@@ -8,7 +8,7 @@ const expected = {
   tasks: ["taskWorkspace", "tasks", "taskDecomposition", "taskEditor"],
   projects: ["projects"],
   mindmap: ["taskMindmap"],
-  day: ["flow"],
+  day: ["adaptiveSchedule", "flow"],
   progress: ["game", "stats", "achievements"],
   settings: ["spotify", "ai", "settings", "notifications", "install", "dataManagement", "diagnostics"]
 };
