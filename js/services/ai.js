@@ -97,7 +97,7 @@ const extractGeminiText = (data) =>
     .join("\n") || null;
 
 const requireKey = (key, provider) => {
-  if (!key) throw new Error(`Clé ${AI_PROVIDERS[provider]?.label ?? provider} absente`);
+  if (!key) throw new Error(`Connexion ${AI_PROVIDERS[provider]?.label ?? provider} absente`);
 };
 
 const callOpenAi = async ({ fetchFn, key, model, prompt, timeoutMs }) => {
@@ -180,7 +180,8 @@ const fusionPrompt = (state, candidates) => `${basePrompt(state)}\n\nPlusieurs a
 export const createAiService = ({
   storage = globalThis.sessionStorage,
   fetchFn = globalThis.fetch,
-  timeoutMs = DEFAULT_TIMEOUT
+  timeoutMs = DEFAULT_TIMEOUT,
+  connections = {}
 } = {}) => {
   const keyName = (provider) => `${KEY_PREFIX}${provider}`;
   const assertProvider = (provider) => {
@@ -202,6 +203,30 @@ export const createAiService = ({
     storage?.removeItem?.(keyName(provider));
   };
   const hasKey = (provider) => Boolean(getKey(provider));
+  const isConnected = (provider) => hasKey(provider);
+
+  const connect = async (provider) => {
+    assertProvider(provider);
+    const adapter = connections?.[provider];
+    if (!adapter?.connect) return { connected: false, reason: "not-configured" };
+    const result = await adapter.connect();
+    const credential = result?.credential ?? result?.accessToken ?? result?.token ?? "";
+    if (credential) setKey(provider, credential);
+    return {
+      connected: Boolean(credential || isConnected(provider)),
+      model: result?.model ?? ""
+    };
+  };
+
+  const disconnect = async (provider) => {
+    assertProvider(provider);
+    try {
+      await connections?.[provider]?.disconnect?.();
+    } finally {
+      clearKey(provider);
+    }
+    return { connected: false };
+  };
 
   const callProvider = async (provider, config, prompt) => {
     assertProvider(provider);
@@ -217,9 +242,9 @@ export const createAiService = ({
   const suggest = async ({ state, mode = "fusion", providers = {}, synthesisProvider = "openai" }) => {
     const enabled = AI_PROVIDER_IDS
       .map((provider) => [provider, cleanConfig(providers[provider])])
-      .filter(([, config]) => config.enabled !== false && config.model);
+      .filter(([provider, config]) => config.enabled !== false && config.model && isConnected(provider));
 
-    if (!enabled.length) throw new Error("Aucune IA configurée parmi GPT, Claude et Gemini");
+    if (!enabled.length) throw new Error("Aucune IA connectée parmi GPT, Claude et Gemini");
     const prompt = basePrompt(state);
 
     if (mode === "single") {
@@ -267,6 +292,9 @@ export const createAiService = ({
 
   return {
     suggest,
+    connect,
+    disconnect,
+    isConnected,
     setKey,
     clearKey,
     hasKey,

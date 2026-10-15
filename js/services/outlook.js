@@ -2,11 +2,18 @@ import { beginPkce, consumePkceCallback, refreshPublicClientToken } from "./oaut
 
 const KEY = "meliapp:microsoft";
 const SCOPES = ["openid", "profile", "offline_access", "Calendars.ReadWrite"];
+const CONFIG_ERROR = "OUTLOOK_CONFIGURATION_MISSING";
 
 export const createOutlookService = ({ clientId, tenant = "common" }) => {
+  const normalizedClientId = String(clientId ?? "").trim();
+  const configured = Boolean(normalizedClientId);
   const tokenUrl = `https://login.microsoftonline.com/${tenant}/oauth2/v2.0/token`;
   let token = sessionStorage.getItem(`${KEY}:access_token`);
   let refreshToken = sessionStorage.getItem(`${KEY}:refresh_token`);
+
+  const assertConfigured = () => {
+    if (!configured) throw new Error(CONFIG_ERROR);
+  };
 
   const saveTokens = (data = {}) => {
     if (data.access_token) {
@@ -20,11 +27,12 @@ export const createOutlookService = ({ clientId, tenant = "common" }) => {
   };
 
   const restore = async () => {
-    const callback = await consumePkceCallback({ tokenUrl, clientId, storageKey: KEY });
+    if (!configured) return null;
+    const callback = await consumePkceCallback({ tokenUrl, clientId: normalizedClientId, storageKey: KEY });
     if (callback) saveTokens(callback);
     if (!token && refreshToken) {
       try {
-        saveTokens(await refreshPublicClientToken({ tokenUrl, clientId, refreshToken, scopes: SCOPES }));
+        saveTokens(await refreshPublicClientToken({ tokenUrl, clientId: normalizedClientId, refreshToken, scopes: SCOPES }));
       } catch {
         refreshToken = null;
         sessionStorage.removeItem(`${KEY}:refresh_token`);
@@ -33,12 +41,15 @@ export const createOutlookService = ({ clientId, tenant = "common" }) => {
     return token ? { accessToken: token } : null;
   };
 
-  const login = () => beginPkce({
-    authorizeUrl: `https://login.microsoftonline.com/${tenant}/oauth2/v2.0/authorize`,
-    clientId,
-    storageKey: KEY,
-    scopes: SCOPES
-  });
+  const login = () => {
+    assertConfigured();
+    return beginPkce({
+      authorizeUrl: `https://login.microsoftonline.com/${tenant}/oauth2/v2.0/authorize`,
+      clientId: normalizedClientId,
+      storageKey: KEY,
+      scopes: SCOPES
+    });
+  };
 
   const logout = async () => {
     token = null;
@@ -48,13 +59,14 @@ export const createOutlookService = ({ clientId, tenant = "common" }) => {
   };
 
   const renew = async () => {
-    if (!refreshToken) return false;
-    const data = await refreshPublicClientToken({ tokenUrl, clientId, refreshToken, scopes: SCOPES });
+    if (!configured || !refreshToken) return false;
+    const data = await refreshPublicClientToken({ tokenUrl, clientId: normalizedClientId, refreshToken, scopes: SCOPES });
     saveTokens(data);
     return Boolean(token);
   };
 
   const request = async (path, options = {}, retry = true) => {
+    assertConfigured();
     if (!token) throw new Error("Outlook non connecté");
     const response = await fetch(`https://graph.microsoft.com/v1.0${path}`, {
       ...options,
@@ -122,6 +134,7 @@ export const createOutlookService = ({ clientId, tenant = "common" }) => {
     restore,
     listEvents,
     createFocusBlock,
-    isConnected: () => Boolean(token)
+    isConnected: () => Boolean(token),
+    isConfigured: () => configured
   };
 };

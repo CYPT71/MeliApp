@@ -1,14 +1,16 @@
-const CACHE = "meliapp-shell-v9";
+const CACHE = "meliapp-shell-v10";
 const SHELL = [
   "./",
   "./index.html",
   "./css/base.css",
   "./css/energy.css",
+  "./css/connections.css",
   "./js/main.js",
   "./js/features.js",
   "./js/features-advanced.js",
   "./js/features-overrides.js",
   "./js/features-energy-friendly.js",
+  "./js/features-connections-friendly.js",
   "./js/feature-categories.js",
   "./js/config.js",
   "./js/core/app.js",
