@@ -91,6 +91,10 @@ export const refreshPublicClientToken = async ({ tokenUrl, clientId, refreshToke
     body
   });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error_description ?? data.error ?? "Échec du rafraîchissement OAuth");
+  if (!response.ok) {
+    const error = new Error(data.error_description ?? data.error ?? "Échec du rafraîchissement OAuth");
+    error.code = data.error;
+    throw error;
+  }
   return data;
 };

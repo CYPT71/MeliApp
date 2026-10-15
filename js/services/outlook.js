@@ -109,12 +109,17 @@ export const createOutlookService = ({ clientId, tenant = "common", authMode = "
       }
     });
     if (response.status === 401 && retry && refreshToken) {
-      await renew();
+      try {
+        await renew();
+      } catch (error) {
+        if (!["invalid_grant", "interaction_required", "login_required"].includes(error.code)) throw error;
+        await logout();
+        throw new Error("Session Outlook expirée");
+      }
       return request(path, options, false);
     }
     if (response.status === 401) {
-      token = null;
-      sessionStorage.removeItem(`${KEY}:access_token`);
+      await logout();
       throw new Error("Session Outlook expirée");
     }
     if (response.status === 204) return null;

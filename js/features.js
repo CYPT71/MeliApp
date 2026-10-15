@@ -121,8 +121,8 @@ export const features = {
   microsoftAuth: {
     description: "Compte Outlook",
     page: { path: "outlook", title: "Outlook", icon: "📅", order: 10 },
-    state: { status: "disconnected", error: null },
-    when: ["app:start", "auth:microsoft:login", "auth:microsoft:logout"],
+    state: { status: "disconnected", error: null, connectionLost: false },
+    when: ["app:start", "app:resume", "sync:manual", "auth:microsoft:login", "auth:microsoft:logout"],
     run: async ({ state, event, services }) => {
       if (!services.outlook) return state;
       try {
@@ -139,9 +139,15 @@ export const features = {
           };
         }
         const session = await services.outlook.restore?.();
-        if (!session) return state;
+        if (!session) return {
+          ...setFeatureState(state, "microsoftAuth", {
+            status: "disconnected", error: null,
+            connectionLost: Boolean(state.auth?.microsoft?.connected || featureState(state, "microsoftAuth").connectionLost)
+          }),
+          auth: { ...state.auth, microsoft: null }
+        };
         return {
-          ...setFeatureState(state, "microsoftAuth", { status: "connected", error: null }),
+          ...setFeatureState(state, "microsoftAuth", { status: "connected", error: null, connectionLost: false }),
           auth: { ...state.auth, microsoft: { connected: true, account: session.account ?? null } }
         };
       } catch (error) {
@@ -186,11 +192,16 @@ export const features = {
           calendar: { events, lastSyncAt: syncedAt }
         };
       } catch (error) {
-        return setFeatureState(state, "outlookSync", (current) => ({
+        const next = setFeatureState(state, "outlookSync", (current) => ({
           ...current,
           syncing: false,
           error: error instanceof Error ? error.message : String(error)
         }));
+        if (services.outlook.isConnected?.() !== false) return next;
+        return {
+          ...setFeatureState(next, "microsoftAuth", { status: "disconnected", error: null, connectionLost: true }),
+          auth: { ...next.auth, microsoft: null }
+        };
       }
     }
   },

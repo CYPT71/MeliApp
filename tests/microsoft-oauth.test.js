@@ -40,3 +40,35 @@ test("Outlook service rejects non-delegated auth modes", () => {
     globalThis.sessionStorage = previous;
   }
 });
+
+for (const scenario of ["refresh rejected", "refreshed token rejected", "temporary network failure"]) {
+  test(`Outlook handles ${scenario} without stale authentication`, async () => {
+    const previousStorage = globalThis.sessionStorage;
+    const previousFetch = globalThis.fetch;
+    const storage = memoryStorage();
+    storage.setItem("meliapp:microsoft:access_token", "test-access");
+    storage.setItem("meliapp:microsoft:refresh_token", "test-refresh");
+    globalThis.sessionStorage = storage;
+    globalThis.fetch = async (url) => {
+      if (String(url).includes("/token")) {
+        if (scenario === "temporary network failure") throw new TypeError("Failed to fetch");
+        if (scenario === "refresh rejected") return new Response(JSON.stringify({ error: "invalid_grant" }), { status: 400 });
+        return new Response(JSON.stringify({ access_token: "test-renewed" }), { status: 200 });
+      }
+      return new Response("{}", { status: 401 });
+    };
+    try {
+      const service = createOutlookService({ clientId: "test-client" });
+      await assert.rejects(service.listEvents({ from: "2026-01-01", to: "2026-01-02" }),
+        scenario === "temporary network failure" ? /Failed to fetch/ : /Session Outlook expirée/);
+      assert.equal(service.isConnected(), scenario === "temporary network failure");
+      if (scenario !== "temporary network failure") {
+        assert.equal(storage.getItem("meliapp:microsoft:access_token"), null);
+        assert.equal(storage.getItem("meliapp:microsoft:refresh_token"), null);
+      }
+    } finally {
+      globalThis.sessionStorage = previousStorage;
+      globalThis.fetch = previousFetch;
+    }
+  });
+}

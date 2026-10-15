@@ -101,6 +101,7 @@ export const connectionFriendlyOverride = {
     description: "Calendrier Outlook",
     ui: {
       ...featureOverrides.microsoftAuth.ui,
+      visible: ({ state }) => !state.auth?.microsoft?.connected,
       render: ({ state }) => {
         const current = featureState(state, "microsoftAuth", {});
         const connected = current.status === "connected" || Boolean(state.auth?.microsoft?.connected);
@@ -121,6 +122,12 @@ export const connectionFriendlyOverride = {
           ])
         );
 
+        if (current.connectionLost) {
+          root.append(node("p", {
+            className: "connection-message", role: "status",
+            text: "La connexion à ton calendrier Outlook a été perdue. Reconnecte-toi pour reprendre la synchronisation."
+          }));
+        }
         if (current.error) {
           root.append(node("p", { className: "connection-message", role: "status", text: friendlyOutlookError(current.error) }));
         }
