@@ -12,17 +12,20 @@ test("production registry exposes the expected grouped navigation", () => {
   assert.ok(byPath.tasks.names.includes("taskWorkspace"));
   assert.ok(byPath.tasks.names.includes("tasks"));
   assert.ok(byPath.tasks.names.includes("taskMindmap"));
-  assert.ok(byPath.tasks.names.includes("projects"));
+  assert.deepEqual(byPath.projects.names, ["projects"]);
   assert.deepEqual(byPath.day.names, ["flow"]);
   assert.ok(byPath.progress.names.includes("game"));
   assert.ok(byPath.settings.names.includes("spotify"));
   assert.ok(byPath.settings.names.includes("ai"));
 });
 
-test("tasks route resolves list, mindmap and project members", () => {
-  const page = findPageByRoute(features, "tasks");
-  assert.ok(page);
-  assert.ok(page.names.includes("tasks"));
-  assert.ok(page.names.includes("taskMindmap"));
-  assert.ok(page.names.includes("projects"));
+test("tasks and projects resolve to separate routes", () => {
+  const tasks = findPageByRoute(features, "tasks");
+  const projects = findPageByRoute(features, "projects");
+  assert.ok(tasks);
+  assert.ok(projects);
+  assert.ok(tasks.names.includes("tasks"));
+  assert.ok(tasks.names.includes("taskMindmap"));
+  assert.ok(!tasks.names.includes("projects"));
+  assert.deepEqual(projects.names, ["projects"]);
 });
