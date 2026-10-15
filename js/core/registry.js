@@ -1,4 +1,6 @@
-export const features = {};
+import { features } from "../features.js";
+
+export { features };
 
 const clone = (value) => {
   if (typeof structuredClone === "function") return structuredClone(value);
@@ -47,8 +49,13 @@ export const validateFeature = (name, feature) => {
     throw new TypeError(`Feature ${name}.enabled must be a function`);
   }
 
-  if (feature.when !== undefined && !Array.isArray(feature.when)) {
-    throw new TypeError(`Feature ${name}.when must be an array`);
+  const events = feature.when ?? feature.on;
+  if (events !== undefined && !Array.isArray(events)) {
+    throw new TypeError(`Feature ${name}.when/on must be an array`);
+  }
+
+  if (feature.ui?.visible !== undefined && typeof feature.ui.visible !== "function") {
+    throw new TypeError(`Feature ${name}.ui.visible must be a function`);
   }
 
   validatePage(name, feature.page);
@@ -67,7 +74,8 @@ export const createFeatureState = (registry = features) =>
 
 export const featuresForEvent = (registry, event, state) =>
   entries(registry).filter(([, feature]) => {
-    const listens = feature.when?.includes(event) ?? false;
+    const events = feature.when ?? feature.on ?? [];
+    const listens = events.includes(event);
     const enabled = feature.enabled?.(state) ?? true;
     return listens && enabled;
   });
