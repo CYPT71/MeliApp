@@ -21,9 +21,9 @@
   ],
   "shortcuts": [
     {
-      "name": "Mes tâches",
-      "short_name": "Tâches",
-      "url": "./#/tasks"
+      "name": "Organisation",
+      "short_name": "Organiser",
+      "url": "./#/organize"
     },
     {
       "name": "Focus",
@@ -31,7 +31,12 @@
       "url": "./#/focus"
     },
     {
-      "name": "Préférences",
+      "name": "Agenda",
+      "short_name": "Agenda",
+      "url": "./#/calendar"
+    },
+    {
+      "name": "Réglages",
       "short_name": "Réglages",
       "url": "./#/settings"
     }
