@@ -25,7 +25,7 @@ const task = (overrides = {}) => ({
 const stateWith = (items) => ({
   features: {
     tasks: { items },
-    taskDecomposition: { manualFor: null, aiLoadingFor: null, error: null },
+    taskDecomposition: { manualFor: null, aiLoadingFor: null, rewardedByParent: {}, error: null, errorTaskId: null },
     game: { xp: 100, level: 2, lastGain: 0 },
     ai: { mode: "fusion", synthesisProvider: "openai", providers: {} }
   }
@@ -65,7 +65,7 @@ test("manual task decomposition creates a child and rewards XP", async () => {
   const initial = stateWith([task()]);
   const result = await taskWorkspaceFeatures.taskDecomposition.run({
     state: initial,
-    event: "task:split-manual",
+    event: "tasks:split-manual",
     payload: { id: "task-1", title: "Ouvrir le document" },
     services: {}
   });
@@ -81,7 +81,7 @@ test("AI decomposition creates children without decomposition XP", async () => {
   const initial = stateWith([task()]);
   const result = await taskWorkspaceFeatures.taskDecomposition.run({
     state: initial,
-    event: "task:split-ai",
+    event: "tasks:split-ai",
     payload: { id: "task-1" },
     services: {
       ai: {
@@ -99,12 +99,14 @@ test("AI decomposition creates children without decomposition XP", async () => {
 });
 
 test("manual split reward is capped per parent task", async () => {
-  let state = stateWith([task({ manualSplitRewardCount: 5 })]);
+  let state = stateWith([task()]);
+  state.features.taskDecomposition.rewardedByParent = { "task-1": 5 };
   state = await taskWorkspaceFeatures.taskDecomposition.run({
     state,
-    event: "task:split-manual",
+    event: "tasks:split-manual",
     payload: { id: "task-1", title: "Une étape de plus" },
     services: {}
   });
   assert.equal(state.features.game.xp, 100);
+  assert.equal(state.features.tasks.items.length, 2);
 });
