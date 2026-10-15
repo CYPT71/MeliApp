@@ -21,14 +21,9 @@
   ],
   "shortcuts": [
     {
-      "name": "Organisation",
-      "short_name": "Organiser",
-      "url": "./#/organize"
-    },
-    {
-      "name": "Focus",
-      "short_name": "Focus",
-      "url": "./#/focus"
+      "name": "Journée",
+      "short_name": "Journée",
+      "url": "./#/day"
     },
     {
       "name": "Agenda",
@@ -36,7 +31,12 @@
       "url": "./#/calendar"
     },
     {
-      "name": "Réglages",
+      "name": "Progression",
+      "short_name": "Progression",
+      "url": "./#/progress"
+    },
+    {
+      "name": "Réglages & connexions",
       "short_name": "Réglages",
       "url": "./#/settings"
     }
