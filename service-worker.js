@@ -1,4 +1,4 @@
-const CACHE = "meliapp-shell-v29";
+const CACHE = "meliapp-shell-v30";
 const SHELL = [
   "./",
   "./index.html",
@@ -25,6 +25,7 @@ const SHELL = [
   "./js/features-spotify-friendly.js",
   "./js/features-data-p2p.js",
   "./js/features-calendar-sources.js",
+  "./js/features-microsoft-accounts.js",
   "./js/features-schedule-preferences.js",
   "./js/features-schedule-behavior.js",
   "./js/features-adaptive-schedule.js",
