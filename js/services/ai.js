@@ -16,13 +16,10 @@ export const AI_PROVIDERS = Object.freeze({
     id: "gemini",
     label: "Gemini / Google",
     endpoint: "https://generativelanguage.googleapis.com/v1beta"
-  },
-  custom: {
-    id: "custom",
-    label: "Endpoint compatible",
-    endpoint: ""
   }
 });
+
+export const AI_PROVIDER_IDS = Object.freeze(Object.keys(AI_PROVIDERS));
 
 const abortableFetch = async (fetchFn, url, options = {}, timeoutMs = DEFAULT_TIMEOUT) => {
   const controller = new AbortController();
@@ -103,10 +100,10 @@ const requireKey = (key, provider) => {
   if (!key) throw new Error(`Clé ${AI_PROVIDERS[provider]?.label ?? provider} absente`);
 };
 
-const callOpenAi = async ({ fetchFn, key, model, endpoint, prompt, timeoutMs }) => {
+const callOpenAi = async ({ fetchFn, key, model, prompt, timeoutMs }) => {
   requireKey(key, "openai");
   if (!model) throw new Error("Modèle GPT non configuré");
-  const response = await abortableFetch(fetchFn, endpoint || AI_PROVIDERS.openai.endpoint, {
+  const response = await abortableFetch(fetchFn, AI_PROVIDERS.openai.endpoint, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -121,10 +118,10 @@ const callOpenAi = async ({ fetchFn, key, model, endpoint, prompt, timeoutMs }) 
   return text;
 };
 
-const callAnthropic = async ({ fetchFn, key, model, endpoint, prompt, timeoutMs }) => {
+const callAnthropic = async ({ fetchFn, key, model, prompt, timeoutMs }) => {
   requireKey(key, "anthropic");
   if (!model) throw new Error("Modèle Claude non configuré");
-  const response = await abortableFetch(fetchFn, endpoint || AI_PROVIDERS.anthropic.endpoint, {
+  const response = await abortableFetch(fetchFn, AI_PROVIDERS.anthropic.endpoint, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -145,10 +142,10 @@ const callAnthropic = async ({ fetchFn, key, model, endpoint, prompt, timeoutMs 
   return text;
 };
 
-const callGemini = async ({ fetchFn, key, model, endpoint, prompt, timeoutMs }) => {
+const callGemini = async ({ fetchFn, key, model, prompt, timeoutMs }) => {
   requireKey(key, "gemini");
   if (!model) throw new Error("Modèle Gemini non configuré");
-  const base = (endpoint || AI_PROVIDERS.gemini.endpoint).replace(/\/$/, "");
+  const base = AI_PROVIDERS.gemini.endpoint.replace(/\/$/, "");
   const response = await abortableFetch(fetchFn, `${base}/models/${encodeURIComponent(model)}:generateContent`, {
     method: "POST",
     headers: {
@@ -167,32 +164,18 @@ const callGemini = async ({ fetchFn, key, model, endpoint, prompt, timeoutMs }) 
   return text;
 };
 
-const callCustom = async ({ fetchFn, key, model, endpoint, prompt, timeoutMs }) => {
-  if (!endpoint) throw new Error("Endpoint IA personnalisé non configuré");
-  const response = await abortableFetch(fetchFn, endpoint, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(key ? { Authorization: `Bearer ${key}` } : {})
-    },
-    body: JSON.stringify({ model: model || undefined, prompt })
-  }, timeoutMs);
-  const data = await safeJson(response);
-  if (!response.ok) throw new Error(errorMessage("custom", response, data));
-  const text = data?.suggestion ?? data?.message ?? data?.output_text ?? data?.text;
-  if (typeof text !== "string" || !text.trim()) throw new Error("Réponse IA personnalisée invalide");
-  return text.trim();
-};
-
-const callers = { openai: callOpenAi, anthropic: callAnthropic, gemini: callGemini, custom: callCustom };
+const callers = Object.freeze({
+  openai: callOpenAi,
+  anthropic: callAnthropic,
+  gemini: callGemini
+});
 
 const cleanConfig = (config = {}) => ({
   enabled: config.enabled !== false,
-  model: String(config.model ?? "").trim(),
-  endpoint: String(config.endpoint ?? "").trim()
+  model: String(config.model ?? "").trim()
 });
 
-const fusionPrompt = (state, candidates) => `${basePrompt(state)}\n\nTrois assistants ont proposé des pistes. Fusionne le meilleur de ces réponses en UNE action finale cohérente. Ne mentionne pas les fournisseurs.\n\n${candidates.map(({ provider, text }, index) => `Proposition ${index + 1} (${provider}) : ${text}`).join("\n\n")}`;
+const fusionPrompt = (state, candidates) => `${basePrompt(state)}\n\nPlusieurs assistants ont proposé des pistes. Fusionne le meilleur de ces réponses en UNE action finale cohérente. Ne mentionne pas les fournisseurs.\n\n${candidates.map(({ text }, index) => `Proposition ${index + 1} : ${text}`).join("\n\n")}`;
 
 export const createAiService = ({
   storage = globalThis.sessionStorage,
@@ -200,20 +183,29 @@ export const createAiService = ({
   timeoutMs = DEFAULT_TIMEOUT
 } = {}) => {
   const keyName = (provider) => `${KEY_PREFIX}${provider}`;
-  const getKey = (provider) => storage?.getItem?.(keyName(provider)) ?? "";
+  const assertProvider = (provider) => {
+    if (!AI_PROVIDER_IDS.includes(provider)) throw new Error(`Fournisseur IA non autorisé : ${provider}`);
+  };
+  const getKey = (provider) => {
+    assertProvider(provider);
+    return storage?.getItem?.(keyName(provider)) ?? "";
+  };
   const setKey = (provider, key) => {
+    assertProvider(provider);
     const value = String(key ?? "").trim();
     if (!storage?.setItem) return;
     if (value) storage.setItem(keyName(provider), value);
     else storage.removeItem?.(keyName(provider));
   };
-  const clearKey = (provider) => storage?.removeItem?.(keyName(provider));
+  const clearKey = (provider) => {
+    assertProvider(provider);
+    storage?.removeItem?.(keyName(provider));
+  };
   const hasKey = (provider) => Boolean(getKey(provider));
 
   const callProvider = async (provider, config, prompt) => {
-    const caller = callers[provider];
-    if (!caller) throw new Error(`Fournisseur IA inconnu : ${provider}`);
-    return caller({
+    assertProvider(provider);
+    return callers[provider]({
       fetchFn,
       key: getKey(provider),
       ...cleanConfig(config),
@@ -223,11 +215,11 @@ export const createAiService = ({
   };
 
   const suggest = async ({ state, mode = "fusion", providers = {}, synthesisProvider = "openai" }) => {
-    const enabled = Object.entries(providers)
-      .filter(([provider, config]) => callers[provider] && config?.enabled !== false && (provider === "custom" ? config?.endpoint : config?.model))
-      .map(([provider, config]) => [provider, cleanConfig(config)]);
+    const enabled = AI_PROVIDER_IDS
+      .map((provider) => [provider, cleanConfig(providers[provider])])
+      .filter(([, config]) => config.enabled !== false && config.model);
 
-    if (!enabled.length) throw new Error("Aucun fournisseur IA configuré");
+    if (!enabled.length) throw new Error("Aucune IA configurée parmi GPT, Claude et Gemini");
     const prompt = basePrompt(state);
 
     if (mode === "single") {
