@@ -33,7 +33,7 @@ export const captureContinuity = (root, route, event) => {
     ]).values()] : [];
   const navScroll = root.querySelector('.feature-nav')?.scrollLeft ?? 0;
   const hadDialog = !!root.querySelector('dialog');
-  const focusedValue = sameRoute && !['task:created', 'tasks:create-reset', 'tasks:prepare-create'].includes(event) && active?.matches('input[type="search"], input[type="text"], input:not([type]), textarea') ? active.value : undefined;
+  const focusedValue = sameRoute && !['task:created', 'tasks:create-reset', 'tasks:prepare-create', 'tasks:split-manual'].includes(event) && active?.matches('input[type="search"], input[type="text"], input:not([type]), textarea') ? active.value : undefined;
   const context = { route, focus, focusedValue, selection, quickDraft, navScroll, sameRoute, hadDialog,
     returnFocus: previous?.returnFocus };
   contexts.set(root, context);

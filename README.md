@@ -124,6 +124,22 @@ Chaque nœud tâche affiche :
 
 Les tâches sans projet apparaissent dans un groupe **Sans projet**.
 
+La carte conserve cette arborescence et propose des interactions directes :
+
+- cliquer sur le titre ouvre l’éditeur ; la coche termine ou rouvre une tâche ;
+- les branches se replient individuellement ou avec Tout replier / Tout déplier ;
+- la recherche affiche les correspondances avec leurs parents et leurs étapes ;
+- **Actions** permet d’isoler une branche, démarrer Pas à pas, ajouter une sous-tâche
+  ou déplacer la tâche principale et toutes ses sous-tâches vers un projet ;
+- **Revenir à toute la carte** quitte l’isolation sans modifier les tâches ;
+- l’affichage des tâches terminées est réglable ; un parent terminé reste visible
+  si ses sous-tâches en cours en ont besoin pour garder leur contexte.
+
+Les projets s’ouvrent directement depuis leur en-tête. Le bouton Ajouter une tâche
+prépare la création dans le bon projet. Les branches repliées, la vue choisie et
+les brouillons de sous-tâches sont sauvegardés dans IndexedDB.
+
+
 ## Outlook
 
 Outlook n’est pas une identité utilisateur MeliApp. Il sert uniquement de **source et destination calendrier**.

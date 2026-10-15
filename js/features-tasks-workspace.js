@@ -1,3 +1,4 @@
+import { visibleTree, moveTaskBranch } from "./domain/mindmap-tree.js";
 import { categoryPresentation } from "./domain/outlook-categories.js";
 import { linkedProjects } from "./domain/project-outlook.js";
 import { features as baseFeatures } from "./features.js";
@@ -372,56 +373,93 @@ const matrixRender = (state) => el("div", { className: "stack task-view" }, [
   matrixBoard(state)
 ]);
 
-const treeTask = (state, task) => {
+const treeTask = (state, task, tree, context, path = new Set()) => {
+  if (path.has(task.id) || !tree.visible.has(task.id)) return null;
+  const current = featureState(state, "taskMindmap", {});
   const quadrant = eisenhowerQuadrant(task);
-  const children = taskItems(state).filter((item) => item.parentTaskId === task.id);
-  const item = el("li", { className: "mindmap-task" }, [
-    el("article", { className: `mindmap-node${categoryPresentation(task).style ? " has-outlook-category" : ""}`, style: categoryPresentation(task).style }, [
-      el("strong", { text: task.title }),
-      el("span", { className: `task-chip quadrant-${quadrant.id}`, text: `${quadrant.icon} ${quadrant.title}` }),
-      el("small", { className: "muted", text: `Imp. ${normalizeImportance(task.importance)} · ${task.estimateMinutes ?? 25} min · ${formatDeadline(task.deadline, true)}` })
-    ])
-  ]);
+  const nextPath = new Set([...path, task.id]);
+  const children = (tree.children.get(task.id) ?? []).filter(child => tree.visible.has(child.id) && !nextPath.has(child.id));
+  const branchId = `mindmap-branch-${encodeURIComponent(context)}-${encodeURIComponent(task.id)}`;
+  const filtered = Boolean(current.query?.trim() || current.focusId);
+  const collapsed = !filtered && (current.collapsedIds ?? []).includes(`task:${task.id}`);
+  const completed = task.status === "completed";
+  const node = el("article", { className: `mindmap-node${completed ? " is-completed" : ""}${current.focusId === task.id ? " is-focused" : ""}${categoryPresentation(task).style ? " has-outlook-category" : ""}`, style: categoryPresentation(task).style, "data-mindmap-task-id": task.id });
+  node.append(el("div", { className: "mindmap-node__heading" }, [
+    button(completed ? "↺" : "✓", completed ? "tasks.subtask-reopen" : "tasks.complete", { className: "mindmap-check", "data-id": task.id, "aria-label": `${completed ? "Rouvrir" : "Terminer"} ${task.title}` }),
+    button(task.title, "item-inspector.open-task", { className: "mindmap-title", "data-id": task.id, "aria-haspopup": "dialog", "aria-label": `Modifier ${task.title}` })
+  ]));
+  node.append(el("span", { className: `task-chip quadrant-${quadrant.id}`, text: completed ? "Terminée" : `${quadrant.icon} ${quadrant.title}` }),
+    el("small", { className: "muted", text: `Imp. ${normalizeImportance(task.importance)} · ${task.estimateMinutes ?? 25} min · ${formatDeadline(task.deadline, true)}` }));
+  const controls = el("div", { className: "row mindmap-node__controls" });
+  if (children.length) controls.append(button(`${collapsed ? "▸" : "▾"} ${children.length} étape${children.length > 1 ? "s" : ""}`, "mindmap.toggle", { "data-id": `task:${task.id}`, "aria-expanded": String(!collapsed), "aria-controls": branchId, disabled: filtered }));
+  controls.append(button("Actions", "mindmap.actions", { "data-id": task.id, "aria-expanded": String(current.actionTaskId === task.id), "aria-label": `Actions pour ${task.title}` }));
+  node.append(controls);
+  if (current.actionTaskId === task.id) {
+    const actions = el("div", { className: "mindmap-node__actions stack" });
+    actions.append(button("Isoler cette branche", "mindmap.focus", { "data-id": task.id }));
+    if (!completed) actions.append(button("Commencer pas à pas", "guide.start", { "data-id": task.id }));
+    if (!task.parentTaskId || !tree.byId.has(task.parentTaskId)) {
+      const select = el("select", { "data-action": "mindmap.move", "data-id": task.id, "aria-label": `Projet principal de ${task.title}` });
+      select.append(el("option", { value: "", text: "Sans projet", selected: !task.projectId }));
+      for (const project of projectItems(state)) select.append(el("option", { value: project.id, text: project.title, selected: task.projectId === project.id }));
+      actions.append(el("label", { className: "field" }, [el("span", { text: "Déplacer la branche vers" }), select]), el("small", { className: "muted", text: "Le projet principal de la tâche et de ses sous-tâches sera modifié. Les associations par catégories Outlook restent visibles." }));
+    }
+    if (!completed) actions.append(el("form", { className: "mindmap-subtask-form stack", "data-submit-action": "mindmap.add-subtask" }, [
+      el("label", { className: "field" }, [el("span", { text: "Nouvelle sous-tâche" }), el("input", { name: "subtaskTitle", required: true, autocomplete: "off", "aria-label": `Nouvelle sous-tâche de ${task.title}` })]),
+      button("Ajouter la sous-tâche", "mindmap.add-subtask", { type: "submit", "data-id": task.id, className: "primary" })
+    ]));
+    node.append(actions);
+  }
+  const item = el("li", { className: "mindmap-task" }, [node]);
   if (children.length) {
-    const branch = el("ul", { className: "mindmap-branch" });
-    for (const child of children) branch.append(treeTask(state, child));
+    const branch = el("ul", { className: "mindmap-branch", id: branchId, hidden: collapsed });
+    if (!collapsed) for (const child of children) { const rendered = treeTask(state, child, tree, context, nextPath); if (rendered) branch.append(rendered); }
     item.append(branch);
   }
   return item;
 };
 
 const mindmapRender = (state) => {
-  const root = el("div", { className: "stack mindmap-view" }, [
-    el("div", { className: "task-view-heading" }, [el("div", {}, [el("h3", { text: "Mindmap" }), el("p", { className: "muted", text: "Vue projet → tâche → étapes. À utiliser pour comprendre, pas pour se perdre dans une carte du métro." })])])
-  ]);
+  const current = featureState(state, "taskMindmap", {});
   const all = taskItems(state);
-  const projectList = projectItems(state);
-  const unassigned = all.filter((task) => !linkedProjects(state, task).length && !task.parentTaskId);
-
-  for (const project of projectList) {
-    const roots = all.filter((task) => linkedProjects(state, task).some((linked) => linked.id === project.id) && !task.parentTaskId);
-    const section = el("section", { className: "mindmap-project" }, [
-      el("div", { className: "mindmap-project__root" }, [
-        el("strong", { text: project.title }),
-        el("small", { className: "muted", text: project.deadline ? formatDeadline(project.deadline) : "Sans échéance projet" })
-      ])
-    ]);
-    const branch = el("ul", { className: "mindmap-branch mindmap-branch--root" });
-    if (!roots.length) branch.append(el("li", { className: "muted", text: "Aucune tâche reliée" }));
-    for (const task of roots) branch.append(treeTask(state, task));
-    section.append(branch);
-    root.append(section);
+  const query = String(current.query ?? "").trim().toLocaleLowerCase("fr");
+  const tree = visibleTree(all, { ...current, matches: task => String(task.title).toLocaleLowerCase("fr").includes(query) || linkedProjects(state, task).some(project => project.title.toLocaleLowerCase("fr").includes(query)) });
+  const root = el("div", { className: "stack mindmap-view" });
+  root.append(el("div", { className: "mindmap-toolbar" }, [
+    el("input", { type: "search", value: current.query ?? "", "data-action": "mindmap.search", "aria-label": "Rechercher une tâche ou un projet", placeholder: "Rechercher une tâche ou un projet…" }),
+    button("Tout déplier", "mindmap.expand-all"), button("Tout replier", "mindmap.collapse-all", { disabled: Boolean(query || current.focusId) }),
+    el("label", { className: "mindmap-completed-filter" }, [el("input", { type: "checkbox", checked: current.showCompleted !== false, "data-action": "mindmap.show-completed" }), el("span", { text: "Afficher les tâches terminées" })])
+  ]));
+  root.append(el("p", { className: "muted", text: "Clique sur un titre pour modifier la tâche. Le bouton Actions permet de créer une étape, changer de projet ou isoler une branche." }));
+  if (current.focusId) {
+    const focused = tree.byId.get(current.focusId);
+    root.append(el("div", { className: "row hint" }, [el("strong", { text: `Branche : ${focused?.title ?? "Tâche supprimée"}` }), button("Revenir à toute la carte", "mindmap.clear-focus")]));
   }
-
-  if (unassigned.length) {
-    const section = el("section", { className: "mindmap-project" }, [el("div", { className: "mindmap-project__root", text: "Sans projet" })]);
-    const branch = el("ul", { className: "mindmap-branch mindmap-branch--root" });
-    for (const task of unassigned) branch.append(treeTask(state, task));
-    section.append(branch);
-    root.append(section);
-  }
-
-  if (!projectList.length && !unassigned.length) root.append(el("div", { className: "task-empty", text: "La mindmap apparaîtra quand il y aura des tâches." }));
+  if (current.query || current.focusId) root.append(el("small", { className: "muted", text: "Les branches correspondantes sont dépliées pour conserver le contexte." }));
+  let groups = 0;
+  const group = (project, roots) => {
+    if ((query || current.focusId || current.showCompleted === false) && !roots.length && !(query && !current.focusId && project?.title.toLocaleLowerCase("fr").includes(query))) return;
+    groups++;
+    const key = `project:${project?.id ?? "unassigned"}`;
+    const branchId = `mindmap-project-${encodeURIComponent(project?.id ?? "unassigned")}`;
+    const collapsed = !query && !current.focusId && (current.collapsedIds ?? []).includes(key);
+    const heading = el("div", { className: "mindmap-project__root" });
+    heading.append(button(`${collapsed ? "▸" : "▾"} ${project?.title ?? "Sans projet"} (${roots.length})`, "mindmap.toggle", { "data-id": key, "aria-expanded": String(!collapsed), "aria-controls": branchId, disabled: Boolean(query || current.focusId) }));
+    if (project) heading.append(button("Ouvrir le projet", "mindmap.open-project", { "data-id": project.id, "aria-label": `Ouvrir le projet ${project.title}` }));
+    heading.append(button("Ajouter une tâche", project ? "projects.add-task" : "mindmap.add-task", { "data-id": project?.id ?? "", "aria-label": `Ajouter une tâche ${project ? `au projet ${project.title}` : "sans projet"}` }));
+    const section = el("section", { className: "mindmap-project" }, [heading]);
+    const branch = el("ul", { className: "mindmap-branch mindmap-branch--root", id: branchId, hidden: collapsed });
+    if (!collapsed) {
+      if (!roots.length) branch.append(el("li", { className: "muted", text: "Aucune tâche reliée. Ajoute la première action du projet." }));
+      for (const task of roots) { const rendered = treeTask(state, task, tree, key); if (rendered) branch.append(rendered); }
+    }
+    section.append(branch); root.append(section);
+  };
+  for (const project of projectItems(state)) group(project, tree.roots.filter(task => tree.visible.has(task.id) && linkedProjects(state, task).some(linked => linked.id === project.id)));
+  const unassigned = tree.roots.filter(task => tree.visible.has(task.id) && !linkedProjects(state, task).length);
+  if (unassigned.length || !all.length && !projectItems(state).length) group(null, unassigned);
+  if (!groups) root.append(el("p", { className: "task-empty", text: "Aucune tâche ne correspond à cette vue. Modifie la recherche ou réaffiche les tâches terminées." }));
+  if (current.message) root.append(el("p", { role: "status", text: current.message }));
   return root;
 };
 
@@ -623,9 +661,62 @@ export const taskWorkspaceFeatures = {
 
   taskMindmap: {
     description: "Mindmap",
+    state: { query: "", collapsedIds: [], showCompleted: true, actionTaskId: null, focusId: null, message: null },
+    when: ["mindmap:toggle", "mindmap:actions", "mindmap:search", "mindmap:show-completed", "mindmap:expand-all", "mindmap:collapse-all", "mindmap:focus", "mindmap:reveal", "mindmap:move", "data:reset"],
+    run: ({ state, event, payload }) => {
+      const current = featureState(state, "taskMindmap", {});
+      if (event === "data:reset") return setFeatureState(state, "taskMindmap", { query: "", collapsedIds: [], showCompleted: true, actionTaskId: null, focusId: null, message: null });
+      if (event === "mindmap:toggle") {
+        const ids = new Set(current.collapsedIds ?? []);
+        if (ids.has(payload.id)) ids.delete(payload.id); else ids.add(payload.id);
+        return setFeatureState(state, "taskMindmap", { ...current, collapsedIds: [...ids] });
+      }
+      if (event === "mindmap:actions") return setFeatureState(state, "taskMindmap", { ...current, actionTaskId: current.actionTaskId === payload.id ? null : payload.id });
+      if (event === "mindmap:search") return setFeatureState(state, "taskMindmap", { ...current, query: payload.query, message: null });
+      if (event === "mindmap:show-completed") return setFeatureState(state, "taskMindmap", { ...current, showCompleted: payload.show });
+      if (event === "mindmap:expand-all") return setFeatureState(state, "taskMindmap", { ...current, collapsedIds: [] });
+      if (event === "mindmap:collapse-all") return setFeatureState(state, "taskMindmap", { ...current, collapsedIds: [...projectItems(state).map(project => `project:${project.id}`), "project:unassigned", ...taskItems(state).map(task => `task:${task.id}`)] });
+      if (event === "mindmap:focus") return setFeatureState(state, "taskMindmap", { ...current, focusId: payload.id || null, query: "", message: null });
+      if (event === "mindmap:reveal") return setFeatureState(state, "taskMindmap", { ...current, collapsedIds: (current.collapsedIds ?? []).filter(id => id !== `task:${payload.id}` && !id.startsWith("project:")), message: "Sous-tâche ajoutée." });
+      if (event === "mindmap:move") {
+        if (!taskItems(state).some(task => task.id === payload.id) || payload.projectId && !projectItems(state).some(project => project.id === payload.projectId)) return state;
+        const tasks = featureState(state, "tasks", {});
+        const next = setFeatureState(state, "tasks", { ...tasks, items: moveTaskBranch(tasks.items, payload.id, payload.projectId) });
+        return setFeatureState(next, "taskMindmap", { ...current, collapsedIds: (current.collapsedIds ?? []).filter(id => !id.startsWith("project:")), message: "Projet principal de la branche mis à jour." });
+      }
+      return state;
+    },
     ui: {
       order: 20,
-      render: ({ state }) => mindmapRender(state)
+      render: ({ state }) => mindmapRender(state),
+      actions: {
+        "mindmap.toggle": ({ target, dispatch }) => dispatch("mindmap:toggle", { id: target.dataset.id }),
+        "mindmap.actions": ({ target, dispatch }) => dispatch("mindmap:actions", { id: target.dataset.id }),
+        "mindmap.search": ({ event, target, dispatch }) => event.type === "input" ? dispatch("mindmap:search", { query: target.value }) : undefined,
+        "mindmap.show-completed": ({ event, target, dispatch }) => event.type === "change" ? dispatch("mindmap:show-completed", { show: target.checked }) : undefined,
+        "mindmap.expand-all": ({ dispatch }) => dispatch("mindmap:expand-all"),
+        "mindmap.collapse-all": ({ dispatch }) => dispatch("mindmap:collapse-all"),
+        "mindmap.focus": ({ target, dispatch }) => dispatch("mindmap:focus", { id: target.dataset.id }),
+        "mindmap.clear-focus": ({ dispatch }) => dispatch("mindmap:focus", { id: null }),
+        "mindmap.add-subtask": async ({ target, dispatch }) => {
+          const title = formValue(target, "subtaskTitle").trim();
+          if (!title) return;
+          await dispatch("tasks:split-manual", { id: target.dataset.id, title });
+          await dispatch("mindmap:reveal", { id: target.dataset.id });
+        },
+        "mindmap.move": async ({ event, target, dispatch }) => {
+          if (event.type !== "change") return;
+          const payload = { id: target.dataset.id, projectId: target.value || null };
+          await dispatch("mindmap:move", payload);
+          await dispatch("task:updated", payload);
+          requestAnimationFrame(() => {
+            const moved = [...document.querySelectorAll("[data-mindmap-task-id]")].find(node => node.dataset.mindmapTaskId === payload.id);
+            moved?.scrollIntoView({ block: "center", behavior: "auto" });
+          });
+        },
+        "mindmap.open-project": async ({ target, dispatch }) => { await dispatch("project:edit-open", { id: target.dataset.id }); location.hash = "#/projects"; },
+        "mindmap.add-task": async ({ dispatch }) => { await dispatch("tasks:prepare-create", { projectId: "" }); location.hash = "#/tasks"; }
+      }
     }
   },
 

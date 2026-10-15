@@ -1,4 +1,4 @@
-export const DRAFT_FORMS = '.task-quick-create, .project-form, .inspector-form, .task-inline-edit, .split-form';
+export const DRAFT_FORMS = '.task-quick-create, .project-form, .inspector-form, .task-inline-edit, .split-form, .mindmap-subtask-form';
 const keyFor = (form, route) => {
   if (form.classList.contains('project-form')) return `${route}:project:${form.dataset.projectId ?? ''}`;
   if (form.classList.contains('task-quick-create')) return `${route}:task`;
@@ -51,7 +51,10 @@ export const createDraftService = ({ storage, onError }) => {
         for (const key of Object.keys(drafts)) if (key.startsWith(`${route}:inspector-form:`)) delete drafts[key];
       } else if (event === 'tasks:edit-close' || event === 'task:updated') {
         for (const key of Object.keys(drafts)) if (key.startsWith(`${route}:task-inline-edit:`)) delete drafts[key];
-      } else if (event === 'tasks:split-manual') delete drafts[`${route}:split-form:${payload?.id}`];
+      } else if (event === 'tasks:split-manual') {
+        delete drafts[`${route}:split-form:${payload?.id}`];
+        delete drafts[`${route}:mindmap-subtask-form:${payload?.id}`];
+      }
       else if (event === 'data:reset') drafts = {};
       else return;
       await save();
