@@ -13,8 +13,10 @@ test("friendly energy selector exposes human labels without visible numbers", ()
 });
 
 test("energy choices progress from depleted to full without numeric wording", () => {
-  assert.equal(ENERGY_CHOICES[0].label, "À plat");
-  assert.equal(ENERGY_CHOICES.at(-1).label, "Pleine");
+  assert.equal(ENERGY_CHOICES[0].label, "Vidée");
+  assert.equal(ENERGY_CHOICES.at(-1).label, "Cerveau en feu");
+  assert.equal(ENERGY_CHOICES.at(-1).emoji, "🤯");
+  assert.equal(new Set(ENERGY_CHOICES.map((choice) => choice.emoji)).size, ENERGY_CHOICES.length);
   for (let index = 1; index < ENERGY_CHOICES.length; index += 1) {
     assert.ok(ENERGY_CHOICES[index].percent > ENERGY_CHOICES[index - 1].percent);
   }
