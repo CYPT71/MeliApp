@@ -40,21 +40,21 @@ export const featureCategories = Object.freeze({
     order: 40,
     features: ["game", "stats", "achievements"]
   },
-  integrations: {
-    id: "integrations",
-    path: "integrations",
-    title: "Connexions",
-    icon: "🔌",
-    order: 50,
-    features: ["spotify", "ai"]
-  },
   settings: {
     id: "settings",
     path: "settings",
-    title: "Réglages",
+    title: "Réglages & connexions",
     icon: "⚙️",
-    order: 60,
-    features: ["settings", "notifications", "install", "dataManagement", "diagnostics"]
+    order: 50,
+    features: [
+      "spotify",
+      "ai",
+      "settings",
+      "notifications",
+      "install",
+      "dataManagement",
+      "diagnostics"
+    ]
   }
 });
 
