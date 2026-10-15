@@ -1,4 +1,5 @@
 import { buildAdaptiveDayPlan, taskContext } from "./domain/adaptive-planning.js";
+import { calendarEventToPlanningTask, splitCalendarEvents } from "./domain/calendar-classification.js";
 
 const featureState = (state, name, fallback = {}) => state.features?.[name] ?? fallback;
 const setFeatureState = (state, name, next) => ({
@@ -37,12 +38,24 @@ const dayEnd = (state, now = new Date()) => {
   return end;
 };
 
+const planningInputs = (state) => {
+  const explicitTasks = tasks(state);
+  const roles = featureState(state, "calendarSources", { roles: {} }).roles ?? {};
+  const { appointments, taskEvents } = splitCalendarEvents(state.calendar?.events ?? [], roles);
+  const importedEventIds = new Set(explicitTasks.map((task) => task.sourceEventId).filter(Boolean).map(String));
+  const inferredTasks = taskEvents
+    .filter((event) => !importedEventIds.has(String(event.id)))
+    .map(calendarEventToPlanningTask);
+  return { tasks: [...explicitTasks, ...inferredTasks], events: appointments };
+};
+
 const computePlan = (state) => {
   const now = new Date();
   const settings = featureState(state, "settings", {});
+  const inputs = planningInputs(state);
   return buildAdaptiveDayPlan({
-    tasks: tasks(state),
-    events: state.calendar?.events ?? [],
+    tasks: inputs.tasks,
+    events: inputs.events,
     energy: energy(state),
     from: now,
     to: dayEnd(state, now),
@@ -86,7 +99,7 @@ const classifier = (state) => {
     root.append(node("div", { className: "list-item row row--between" }, [
       node("div", { className: "stack compact" }, [
         node("strong", { text: task.title }),
-        node("small", { className: "muted", text: `${task.deadline ? `Échéance ${formatDeadline(task.deadline)}` : "Sans échéance"}${explicit ? "" : " · classée perso par défaut"}` })
+        node("small", { className: "muted", text: `${task.deadline ? `Échéance ${formatDeadline(task.deadline)}` : "Sans échéance"}${explicit ? "" : " · classée automatiquement"}` })
       ]),
       node("div", { className: "row" }, [
         button("📚 Cours", "adaptive-plan.context", { "data-id": task.id, "data-context": "cours", className: context === "cours" ? "primary" : "secondary" }),
@@ -101,19 +114,21 @@ const render = ({ state }) => {
   const current = featureState(state, "adaptiveSchedule", {});
   const plan = current.blocks?.length || current.generatedAt ? current : computePlan(state);
   const policy = plan.policy ?? {};
+  const roles = featureState(state, "calendarSources", { roles: {} }).roles ?? {};
+  const split = splitCalendarEvents(state.calendar?.events ?? [], roles);
   const root = node("div", { className: "stack adaptive-plan" });
 
   root.append(
     node("div", { className: "row row--between" }, [
       node("div", { className: "stack compact" }, [
         node("h2", { text: "Planning intelligent" }),
-        node("p", { className: "muted", text: "Agenda fixe + deadlines + tâches cours/perso + pauses adaptées à ton énergie." })
+        node("p", { className: "muted", text: "Rendez-vous fixes + deadlines + tâches agenda/cours/perso + pauses adaptées à ton énergie." })
       ]),
       button("Recalculer", "adaptive-plan.refresh", { className: "primary" })
     ]),
     node("aside", { className: "hint" }, [
       node("strong", { text: `⚡ Énergie ${policy.level ?? energy(state)}/10` }),
-      node("span", { text: ` · blocs d’environ ${policy.workMinutes ?? "?"} min · pauses ${policy.breakMinutes ?? "?"} min` })
+      node("span", { text: ` · ${split.appointments.length} rendez-vous · ${split.taskEvents.length} tâches détectées · blocs ~${policy.workMinutes ?? "?"} min · pauses ${policy.breakMinutes ?? "?"} min` })
     ]),
     classifier(state)
   );
@@ -151,6 +166,7 @@ const EVENTS = [
   "energy:set",
   "sync:manual",
   "calendar:synced",
+  "calendar:source-role",
   "task:created",
   "task:updated",
   "task:deleted",

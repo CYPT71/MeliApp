@@ -42,20 +42,11 @@ export const createOutlookService = ({ clientId, tenant = "common", authMode = "
 
   const restore = async () => {
     if (!configured) return null;
-    const callback = await consumePkceCallback({
-      tokenUrl,
-      clientId: normalizedClientId,
-      storageKey: KEY
-    });
+    const callback = await consumePkceCallback({ tokenUrl, clientId: normalizedClientId, storageKey: KEY });
     if (callback) saveTokens(callback);
     if (!token && refreshToken) {
       try {
-        saveTokens(await refreshPublicClientToken({
-          tokenUrl,
-          clientId: normalizedClientId,
-          refreshToken,
-          scopes: delegatedScopes
-        }));
+        saveTokens(await refreshPublicClientToken({ tokenUrl, clientId: normalizedClientId, refreshToken, scopes: delegatedScopes }));
       } catch {
         refreshToken = null;
         sessionStorage.removeItem(`${KEY}:refresh_token`);
@@ -71,10 +62,7 @@ export const createOutlookService = ({ clientId, tenant = "common", authMode = "
       clientId: normalizedClientId,
       storageKey: KEY,
       scopes: delegatedScopes,
-      extra: {
-        response_mode: "query",
-        prompt: "select_account"
-      }
+      extra: { response_mode: "query", prompt: "select_account" }
     });
   };
 
@@ -87,12 +75,7 @@ export const createOutlookService = ({ clientId, tenant = "common", authMode = "
 
   const renew = async () => {
     if (!configured || !refreshToken) return false;
-    const data = await refreshPublicClientToken({
-      tokenUrl,
-      clientId: normalizedClientId,
-      refreshToken,
-      scopes: delegatedScopes
-    });
+    const data = await refreshPublicClientToken({ tokenUrl, clientId: normalizedClientId, refreshToken, scopes: delegatedScopes });
     saveTokens(data);
     return Boolean(token);
   };
@@ -102,11 +85,7 @@ export const createOutlookService = ({ clientId, tenant = "common", authMode = "
     if (!token) throw new Error("Outlook non connecté");
     const response = await fetch(`https://graph.microsoft.com/v1.0${path}`, {
       ...options,
-      headers: {
-        Accept: "application/json",
-        Authorization: `Bearer ${token}`,
-        ...(options.headers ?? {})
-      }
+      headers: { Accept: "application/json", Authorization: `Bearer ${token}`, ...(options.headers ?? {}) }
     });
     if (response.status === 401 && retry && refreshToken) {
       try {
@@ -128,15 +107,27 @@ export const createOutlookService = ({ clientId, tenant = "common", authMode = "
     return data;
   };
 
-  const listEvents = async ({ from, to }) => {
+  const listCalendars = async () => {
+    const data = await request("/me/calendars?$select=id,name,color,isDefaultCalendar,canEdit");
+    return (data?.value ?? []).map((calendar) => ({
+      id: calendar.id,
+      name: calendar.name ?? "Agenda Outlook",
+      color: calendar.color ?? null,
+      isDefaultCalendar: Boolean(calendar.isDefaultCalendar),
+      canEdit: calendar.canEdit !== false
+    })).filter((calendar) => calendar.id);
+  };
+
+  const listEvents = async ({ from, to, calendarId = null, calendarName = null }) => {
     const params = new URLSearchParams({
       startDateTime: from,
       endDateTime: to,
       "$orderby": "start/dateTime",
-      "$select": "id,subject,start,end,isAllDay,location,webLink"
+      "$select": "id,subject,start,end,isAllDay,location,webLink,isOnlineMeeting,onlineMeeting,onlineMeetingProvider"
     });
     const items = [];
-    let path = `/me/calendarView?${params.toString()}`;
+    const prefix = calendarId ? `/me/calendars/${encodeURIComponent(calendarId)}/calendarView` : "/me/calendarView";
+    let path = `${prefix}?${params.toString()}`;
     const visited = new Set();
     while (path) {
       if (visited.has(path)) throw new Error("Pagination Outlook interrompue");
@@ -154,7 +145,12 @@ export const createOutlookService = ({ clientId, tenant = "common", authMode = "
       end: event.end?.dateTime ? `${event.end.dateTime}${event.end.timeZone === "UTC" ? "Z" : ""}` : null,
       allDay: Boolean(event.isAllDay),
       location: event.location?.displayName ?? "",
-      webLink: event.webLink ?? null
+      webLink: event.webLink ?? null,
+      isOnlineMeeting: Boolean(event.isOnlineMeeting),
+      onlineMeetingProvider: event.onlineMeetingProvider ?? null,
+      onlineMeetingUrl: event.onlineMeeting?.joinUrl ?? null,
+      calendarId: calendarId ?? "default",
+      calendarName: calendarName ?? "Calendrier principal"
     })).filter((event) => event.start && event.end);
   };
 
@@ -178,6 +174,7 @@ export const createOutlookService = ({ clientId, tenant = "common", authMode = "
     login,
     logout,
     restore,
+    listCalendars,
     listEvents,
     createFocusBlock,
     isConnected: () => Boolean(token),
