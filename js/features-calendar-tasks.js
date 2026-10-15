@@ -30,17 +30,18 @@ const button = (label, action, attrs = {}) =>
 
 export const outlookTaskId = (eventId) => `outlook_${encodeURIComponent(String(eventId ?? ""))}`;
 
-export const calendarEventToTask = (event) => {
+export const calendarEventToTask = (event, overrides = {}) => {
   const start = new Date(event?.start);
   const end = new Date(event?.end);
   const duration = Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())
     ? 25
     : Math.max(5, Math.min(480, Math.round((end.getTime() - start.getTime()) / 60000)));
+  const hasDeadlineOverride = Object.prototype.hasOwnProperty.call(overrides, "deadline");
 
   return {
     id: outlookTaskId(event?.id),
     title: String(event?.title ?? event?.subject ?? "Événement Outlook").trim(),
-    deadline: event?.start ?? null,
+    deadline: hasDeadlineOverride ? (overrides.deadline || null) : (event?.start ?? null),
     estimateMinutes: duration,
     difficulty: 2,
     importance: 3,
@@ -77,16 +78,22 @@ export const calendarTaskFeatures = {
           return node("div", { className: "stack compact" }, [
             ...linkedProjects(context.state, event).map((project) => node("span", { className: "task-chip", text: `Projet · ${project.title}` })),
             button(imported ? "Ajoutée aux tâches" : "Ajouter aux tâches", "calendar.import-task", {
-            className: imported ? "secondary" : "primary",
-            "data-event-id": event.id,
-            disabled: imported ? true : null
-          })]);
+              className: imported ? "secondary" : "primary",
+              "data-event-id": event.id,
+              disabled: imported ? true : null
+            })
+          ]);
         }
       }),
       actions: {
         ...(baseFeatures.calendarView.ui?.actions ?? {}),
-        "calendar.import-task": ({ target, dispatch }) =>
-          dispatch("calendar:task-import", { eventId: target.dataset.eventId })
+        "calendar.import-task": ({ target, dispatch }) => {
+          const deadlineInput = target.closest("form")?.elements?.namedItem("taskDeadline");
+          return dispatch("calendar:task-import", {
+            eventId: target.dataset.eventId,
+            ...(deadlineInput ? { deadline: deadlineInput.value } : {})
+          });
+        }
       }
     }
   },
@@ -99,7 +106,8 @@ export const calendarTaskFeatures = {
     run: ({ state, payload }) => {
       const event = (state.calendar?.events ?? []).find((item) => String(item.id) === String(payload?.eventId));
       if (!event || isImported(state, event)) return state;
-      const task = calendarEventToTask(event);
+      const options = Object.prototype.hasOwnProperty.call(payload ?? {}, "deadline") ? { deadline: payload.deadline } : {};
+      const task = calendarEventToTask(event, options);
       const current = featureState(state, "tasks", { items: [] });
       return setFeatureState(state, "tasks", {
         ...current,

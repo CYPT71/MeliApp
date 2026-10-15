@@ -6,6 +6,7 @@ import { connectionFriendlyOverride } from "../features-connections-friendly.js"
 import { spotifyFriendlyOverride } from "../features-spotify-friendly.js";
 import { dataP2pOverride } from "../features-data-p2p.js";
 import { calendarSourceFeatures } from "../features-calendar-sources.js";
+import { microsoftAccountFeatures } from "../features-microsoft-accounts.js";
 import { schedulePreferenceFeatures } from "../features-schedule-preferences.js";
 import { adaptiveScheduleFeatures } from "../features-adaptive-schedule.js";
 import { scheduleBehaviorOverride } from "../features-schedule-behavior.js";
@@ -30,6 +31,7 @@ export const features = Object.freeze(
     ...spotifyFriendlyOverride,
     ...dataP2pOverride,
     ...calendarSourceFeatures,
+    ...microsoftAccountFeatures,
     ...schedulePreferenceFeatures,
     ...adaptiveScheduleFeatures,
     ...scheduleBehaviorOverride,

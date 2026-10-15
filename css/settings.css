@@ -95,6 +95,51 @@
   gap: .8rem;
 }
 
+.microsoft-accounts {
+  gap: .8rem;
+}
+
+.microsoft-account-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: .8rem;
+  padding: .9rem;
+  border: 1px solid var(--line, #2a2a2a);
+  border-radius: 1rem;
+  background: rgba(255,255,255,.025);
+}
+
+.microsoft-account-card.is-active {
+  border-color: color-mix(in srgb, currentColor 35%, transparent);
+  background: color-mix(in srgb, currentColor 5%, transparent);
+}
+
+.microsoft-account-card__avatar {
+  display: grid;
+  place-items: center;
+  width: 2.7rem;
+  height: 2.7rem;
+  border-radius: .8rem;
+  font-weight: 800;
+  background: rgba(255,255,255,.08);
+}
+
+.microsoft-account-card__identity {
+  min-width: 0;
+}
+
+.microsoft-account-card__identity strong,
+.microsoft-account-card__identity small {
+  overflow-wrap: anywhere;
+}
+
+.microsoft-account-card__actions,
+.microsoft-account-toolbar {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 @media (max-width: 700px) {
   .schedule-item-row > .row,
   .schedule-pref-card > .row {
@@ -104,5 +149,19 @@
 
   .segmented-control {
     width: 100%;
+  }
+
+  .microsoft-account-card {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .microsoft-account-card__actions {
+    grid-column: 1 / -1;
+    justify-content: stretch;
+  }
+
+  .microsoft-account-card__actions button,
+  .microsoft-account-toolbar button {
+    flex: 1 1 180px;
   }
 }
