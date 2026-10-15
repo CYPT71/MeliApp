@@ -73,3 +73,10 @@ test("project creation and updates retain Outlook mappings independently of free
   assert.deepEqual(state.features.projects.items[0].outlookCategories, ["Cours", "Examens"]);
   assert.deepEqual(state.features.projects.items[0].tags, ["perso", "important"]);
 });
+
+test("popup composition retains Outlook import and project navigation actions", async () => {
+  const { features } = await import("../js/core/registry.js");
+  const { calendarTaskFeatures } = await import("../js/features-calendar-tasks.js");
+  assert.equal(features.calendarView.ui.actions["calendar.import-task"], calendarTaskFeatures.calendarView.ui.actions["calendar.import-task"]);
+  assert.equal(features.taskWorkspace.ui.actions["projects.open"], projectFeatures.taskWorkspace.ui.actions["projects.open"]);
+});

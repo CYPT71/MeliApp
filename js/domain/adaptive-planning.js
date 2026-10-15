@@ -33,7 +33,18 @@ const deadlineWeight = (task, now) => {
   return 1;
 };
 
-export const adaptiveTaskScore = ({ task, energy, freeWindowMinutes, now = Date.now(), lastContext = null }) => {
+const stableVariantJitter = (taskId, variant = 0, cursor = 0) => {
+  if (!variant) return 0;
+  const text = `${taskId ?? "task"}:${variant}:${Math.floor(Number(cursor) / (30 * MINUTE))}`;
+  let hash = 2166136261;
+  for (let i = 0; i < text.length; i += 1) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return ((hash >>> 0) % 1000) / 1000 * 2.4 - 1.2;
+};
+
+export const adaptiveTaskScore = ({ task, energy, freeWindowMinutes, now = Date.now(), lastContext = null, variant = 0 }) => {
   const policy = energyPolicy(energy);
   const base = computePriorityScore({ task, energy, freeWindowMinutes, now });
   const context = taskContext(task);
@@ -43,7 +54,8 @@ export const adaptiveTaskScore = ({ task, energy, freeWindowMinutes, now = Date.
   const deadlineOverride = task.deadline && minutesUntil(task.deadline, now) <= 24 * 60 ? Math.max(0, energyPenalty - 2) : energyPenalty;
   const alternation = lastContext && lastContext !== context ? 1.5 : 0;
   const courseDeadlineBonus = context === "cours" && task.deadline ? 2 : 0;
-  return base + deadline + alternation + courseDeadlineBonus - deadlineOverride;
+  const variation = stableVariantJitter(task.id, variant, now);
+  return base + deadline + alternation + courseDeadlineBonus + variation - deadlineOverride;
 };
 
 const taskRemainingMinutes = (task) => {
@@ -73,7 +85,8 @@ export const buildAdaptiveDayPlan = ({
   from = Date.now(),
   to,
   bufferMinutes = 10,
-  dayEndHour = 23
+  dayEndHour = 23,
+  variant = 0
 } = {}) => {
   const start = new Date(from).getTime();
   const fallbackEnd = new Date(start);
@@ -122,7 +135,7 @@ export const buildAdaptiveDayPlan = ({
           return {
             task,
             context: taskContext(task),
-            score: adaptiveTaskScore({ task, energy, freeWindowMinutes: availableMinutes, now: cursor, lastContext }),
+            score: adaptiveTaskScore({ task, energy, freeWindowMinutes: availableMinutes, now: cursor, lastContext, variant }),
             chunkMinutes: Math.min(remaining, chunk.chunkMinutes ?? policy.workMinutes, policy.workMinutes)
           };
         })
@@ -175,7 +188,7 @@ export const buildAdaptiveDayPlan = ({
   const unscheduled = active
     .map((task) => ({ ...task, remainingMinutes: remainingById.get(task.id) ?? 0 }))
     .filter((task) => task.remainingMinutes > 0)
-    .sort((a, b) => adaptiveTaskScore({ task: b, energy, freeWindowMinutes: 60, now: start }) - adaptiveTaskScore({ task: a, energy, freeWindowMinutes: 60, now: start }));
+    .sort((a, b) => adaptiveTaskScore({ task: b, energy, freeWindowMinutes: 60, now: start, variant }) - adaptiveTaskScore({ task: a, energy, freeWindowMinutes: 60, now: start, variant }));
 
   return {
     policy,

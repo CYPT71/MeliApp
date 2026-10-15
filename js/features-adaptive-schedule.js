@@ -1,5 +1,6 @@
 import { categoryPresentation } from "./domain/outlook-categories.js";
 import { buildAdaptiveDayPlan, taskContext } from "./domain/adaptive-planning.js";
+import { buildAdaptiveWeekPlan } from "./domain/weekly-planning.js";
 import { calendarEventToPlanningTask, splitCalendarEvents } from "./domain/calendar-classification.js";
 
 const featureState = (state, name, fallback = {}) => state.features?.[name] ?? fallback;
@@ -17,6 +18,7 @@ const node = (tag, attrs = {}, children = []) => {
     if (value === undefined || value === null || value === false) continue;
     if (key === "className") element.className = value;
     else if (key === "text") element.textContent = String(value);
+    else if (key === "disabled") element.disabled = Boolean(value);
     else element.setAttribute(key, value === true ? "" : String(value));
   }
   for (const child of (Array.isArray(children) ? children : [children])) {
@@ -64,7 +66,29 @@ const computePlan = (state) => {
   });
 };
 
+const computeWeek = (state, variant = 0) => {
+  const settings = featureState(state, "settings", {});
+  const inputs = planningInputs(state);
+  return {
+    ...buildAdaptiveWeekPlan({
+      tasks: inputs.tasks,
+      events: inputs.events,
+      energy: energy(state),
+      from: Date.now(),
+      days: 7,
+      dayStart: settings.dayStart ?? "08:00",
+      dayEnd: settings.dayEnd ?? "23:00",
+      bufferMinutes: Number(settings.calendarBufferMinutes ?? state.settings?.calendarBufferMinutes ?? 10),
+      variant
+    }),
+    mergeStatus: "idle",
+    mergeError: null,
+    mergedAt: null
+  };
+};
+
 const formatTime = (value) => new Intl.DateTimeFormat("fr-FR", { hour: "2-digit", minute: "2-digit" }).format(new Date(value));
+const formatDay = (value) => new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "short" }).format(new Date(value));
 const formatDeadline = (value) => value
   ? new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(value))
   : null;
@@ -113,18 +137,65 @@ const classifier = (state) => {
   return root;
 };
 
+const weeklyProposal = (state, weekly) => {
+  const root = node("section", { className: "stack" });
+  const publishable = (weekly.blocks ?? []).filter((block) => block.type === "task" || block.type === "break");
+  const focusMinutes = publishable.filter((block) => block.type === "task").reduce((sum, block) => sum + Number(block.minutes ?? 0), 0);
+  const pauseMinutes = publishable.filter((block) => block.type === "break").reduce((sum, block) => sum + Number(block.minutes ?? 0), 0);
+  const connected = Boolean(state.auth?.microsoft?.connected);
+  const merging = weekly.mergeStatus === "merging";
+  const merged = weekly.mergeStatus === "done";
+
+  root.append(
+    node("div", { className: "row row--between" }, [
+      node("div", { className: "stack compact" }, [
+        node("h2", { text: "Proposition pour les 7 prochains jours" }),
+        node("p", { className: "muted", text: `Version ${Number(weekly.variant ?? 0) + 1} · ${Math.round(focusMinutes / 60 * 10) / 10} h de focus · ${pauseMinutes} min de pauses.` })
+      ]),
+      node("div", { className: "row" }, [
+        button("🎲 Reroll", "adaptive-week.reroll", { className: "secondary", disabled: merging }),
+        button(merged ? "✓ Ajouté à Outlook" : merging ? "Ajout en cours…" : "Fusionner dans Outlook", "adaptive-week.merge", {
+          className: "primary",
+          disabled: merging || merged || !connected || publishable.length === 0
+        })
+      ])
+    ]),
+    node("p", { className: "hint", text: "Le reroll change l’ordre des tâches de priorité proche sans sacrifier les deadlines urgentes. La fusion ajoute seulement les blocs de travail et les pauses, jamais les rendez-vous déjà présents." })
+  );
+
+  if (!connected) root.append(node("p", { className: "connection-message", text: "Connecte Outlook pour fusionner cette proposition dans ton agenda." }));
+  if (weekly.mergeError) root.append(node("p", { className: "error", text: weekly.mergeError }));
+  if (merged) root.append(node("p", { className: "connection-message", text: `Proposition ajoutée à Outlook${weekly.mergedAt ? ` · ${formatDeadline(weekly.mergedAt)}` : ""}.` }));
+
+  for (const day of weekly.dayPlans ?? []) {
+    const visible = (day.blocks ?? []).filter((block) => block.type !== "event");
+    if (!visible.length) continue;
+    const section = node("details", { className: "list-item stack compact" }, [
+      node("summary", {}, [node("strong", { text: formatDay(day.date) }), node("span", { className: "task-count", text: `${visible.length} blocs` })])
+    ]);
+    for (const block of visible) section.append(blockRow(block));
+    root.append(section);
+  }
+
+  if (weekly.unscheduled?.length) root.append(node("p", { className: "muted", text: `${weekly.unscheduled.length} tâche(s) ne rentrent pas encore dans la semaine. Elles restent visibles comme à reporter ou découper.` }));
+  return root;
+};
+
 const render = ({ state }) => {
   const current = featureState(state, "adaptiveSchedule", {});
   const plan = current.blocks?.length || current.generatedAt ? current : computePlan(state);
+  const weekly = current.weekly?.generatedAt ? current.weekly : computeWeek(state, 0);
   const policy = plan.policy ?? {};
   const roles = featureState(state, "calendarSources", { roles: {} }).roles ?? {};
   const split = splitCalendarEvents(state.calendar?.events ?? [], roles);
   const root = node("div", { className: "stack adaptive-plan" });
 
   root.append(
+    weeklyProposal(state, weekly),
+    node("hr"),
     node("div", { className: "row row--between" }, [
       node("div", { className: "stack compact" }, [
-        node("h2", { text: "Planning intelligent" }),
+        node("h2", { text: "Planning intelligent du jour" }),
         node("p", { className: "muted", text: "Rendez-vous fixes + deadlines + tâches agenda/cours/perso + pauses adaptées à ton énergie." })
       ]),
       button("Recalculer", "adaptive-plan.refresh", { className: "primary" })
@@ -166,6 +237,8 @@ const EVENTS = [
   "app:start",
   "app:resume",
   "adaptive-plan:refresh",
+  "adaptive-week:reroll",
+  "adaptive-week:merge",
   "energy:set",
   "sync:manual",
   "calendar:synced",
@@ -180,15 +253,44 @@ const EVENTS = [
 
 export const adaptiveScheduleFeatures = {
   adaptiveSchedule: {
-    description: "Planning adaptatif deadlines · énergie · pauses",
-    state: { blocks: [], unscheduled: [], policy: null, generatedAt: null },
+    description: "Planning adaptatif jour/semaine · reroll · fusion Outlook",
+    state: { blocks: [], unscheduled: [], policy: null, generatedAt: null, weekly: null },
     when: EVENTS,
-    run: ({ state }) => setFeatureState(state, "adaptiveSchedule", computePlan(state)),
+    run: async ({ state, event, services }) => {
+      const current = featureState(state, "adaptiveSchedule", {});
+      if (event === "adaptive-week:merge") {
+        const weekly = current.weekly?.generatedAt ? current.weekly : computeWeek(state, 0);
+        if (!services.outlook?.isConnected?.() || typeof services.outlook?.createPlanningBlocks !== "function") {
+          return setFeatureState(state, "adaptiveSchedule", { ...current, weekly: { ...weekly, mergeStatus: "error", mergeError: "Outlook doit être connecté pour fusionner la proposition." } });
+        }
+        const publishable = (weekly.blocks ?? []).filter((block) => block.type === "task" || block.type === "break");
+        try {
+          const mergingState = { ...weekly, mergeStatus: "merging", mergeError: null };
+          await services.outlook.createPlanningBlocks(publishable);
+          return setFeatureState(state, "adaptiveSchedule", {
+            ...current,
+            weekly: { ...mergingState, mergeStatus: "done", mergedAt: new Date().toISOString() }
+          });
+        } catch (error) {
+          return setFeatureState(state, "adaptiveSchedule", {
+            ...current,
+            weekly: { ...weekly, mergeStatus: "error", mergeError: error instanceof Error ? error.message : String(error) }
+          });
+        }
+      }
+
+      const variant = event === "adaptive-week:reroll"
+        ? Number(current.weekly?.variant ?? 0) + 1
+        : Number(current.weekly?.variant ?? 0);
+      return setFeatureState(state, "adaptiveSchedule", { ...computePlan(state), weekly: computeWeek(state, variant) });
+    },
     ui: {
       order: 5,
       render,
       actions: {
         "adaptive-plan.refresh": ({ dispatch }) => dispatch("adaptive-plan:refresh"),
+        "adaptive-week.reroll": ({ dispatch }) => dispatch("adaptive-week:reroll"),
+        "adaptive-week.merge": ({ dispatch }) => dispatch("adaptive-week:merge"),
         "adaptive-plan.context": ({ target, dispatch }) => dispatch("task:updated", { id: target.dataset.id, context: target.dataset.context })
       }
     }
