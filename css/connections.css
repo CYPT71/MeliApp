@@ -38,17 +38,21 @@
 
 .ai-connections {
   gap: 1rem;
+  min-width: 0;
 }
 
 .ai-connect-grid {
   display: grid;
   gap: .8rem;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  align-items: stretch;
 }
 
 .ai-connect-card {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: .75rem;
+  min-width: 0;
   padding: 1rem;
   border-radius: 1rem;
   border: 1px solid rgba(255,255,255,.08);
@@ -67,17 +71,26 @@
 }
 
 .ai-connect-card__top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: .6rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: .55rem;
+}
+
+.ai-connect-card__top strong {
+  line-height: 1.2;
+  overflow-wrap: anywhere;
 }
 
 .connection-pill {
-  padding: .25rem .5rem;
+  justify-self: start;
+  max-width: 100%;
+  padding: .3rem .55rem;
   border-radius: 999px;
   font-size: .75rem;
-  white-space: nowrap;
+  line-height: 1.25;
+  white-space: normal;
+  overflow-wrap: anywhere;
   background: rgba(255,255,255,.08);
   opacity: .75;
 }
@@ -87,8 +100,22 @@
   background: rgba(120, 210, 140, .14);
 }
 
-.ai-connect-card p { margin: 0; }
-.ai-connect-card button { width: 100%; }
+.ai-connect-card p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.ai-connect-card button {
+  width: 100%;
+  min-height: 46px;
+  margin-top: auto;
+}
+
+@media (max-width: 820px) {
+  .ai-connect-grid {
+    grid-template-columns: 1fr;
+  }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .ai-connect-card { transition: none; }

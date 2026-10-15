@@ -6,6 +6,11 @@ const AI_LABELS = Object.freeze({
   anthropic: "Claude / Anthropic",
   gemini: "Gemini / Google"
 });
+const AI_PENDING_COPY = Object.freeze({
+  openai: "Sign in with ChatGPT demande un flow OAuth réel. Sur le web, OpenAI demande une intégration autorisée et un backend pour sécuriser le callback.",
+  anthropic: "Aucun flow OAuth délégué Claude adapté à MeliApp n’est configuré actuellement.",
+  gemini: "Gemini peut utiliser OAuth Google, mais MeliApp doit d’abord être enregistré dans Google Cloud avec son consentement OAuth."
+});
 
 const node = (tag, attrs = {}, children = []) => {
   const element = document.createElement(tag);
@@ -55,6 +60,7 @@ const normalizeAi = (state) => {
       {
         enabled: current.providers?.[id]?.enabled !== false,
         connected: Boolean(current.providers?.[id]?.connected ?? current.providers?.[id]?.keyConfigured),
+        connectable: Boolean(current.providers?.[id]?.connectable),
         status: current.providers?.[id]?.status ?? "idle",
         model: current.providers?.[id]?.model ?? "",
         error: current.providers?.[id]?.error ?? null
@@ -65,13 +71,14 @@ const normalizeAi = (state) => {
 
 const providerCard = (id, provider) => {
   const connected = Boolean(provider.connected);
+  const connectable = Boolean(provider.connectable);
   const status = provider.status === "connecting"
     ? "Connexion…"
     : connected
       ? "Connecté"
-      : provider.error
-        ? provider.error
-        : "Non connecté";
+      : connectable
+        ? "Prêt à connecter"
+        : "Configuration requise";
 
   return node("article", { className: `ai-connect-card${connected ? " is-connected" : ""}` }, [
     node("div", { className: "ai-connect-card__top" }, [
@@ -82,16 +89,26 @@ const providerCard = (id, provider) => {
       className: "muted",
       text: connected
         ? "MeliApp peut utiliser cette IA pour t’aider à choisir la prochaine action."
-        : "Connecte ton compte pour autoriser MeliApp à utiliser cette IA."
+        : connectable
+          ? "La connexion déléguée est prête. MeliApp ouvrira le fournisseur officiel pour demander ton autorisation."
+          : AI_PENDING_COPY[id]
     }),
-    node("button", {
-      type: "button",
-      className: connected ? "secondary" : "primary",
-      "data-action": connected ? "ai.disconnect-provider" : "ai.connect-provider",
-      "data-provider": id,
-      disabled: provider.status === "connecting" ? true : null,
-      text: connected ? "Déconnecter" : "Connecter"
-    })
+    connected
+      ? node("button", {
+          type: "button",
+          className: "secondary",
+          "data-action": "ai.disconnect-provider",
+          "data-provider": id,
+          text: "Déconnecter"
+        })
+      : node("button", {
+          type: "button",
+          className: "primary",
+          "data-action": connectable ? "ai.connect-provider" : undefined,
+          "data-provider": id,
+          disabled: !connectable || provider.status === "connecting" ? true : null,
+          text: connectable ? "Connecter" : "À configurer"
+        })
   ]);
 };
 
@@ -159,6 +176,7 @@ export const connectionFriendlyOverride = {
           {
             ...current.providers[id],
             connected: Boolean(services.ai?.isConnected?.(id) ?? services.ai?.hasKey?.(id)),
+            connectable: Boolean(services.ai?.canConnect?.(id)),
             status: "idle",
             error: null
           }
@@ -168,7 +186,7 @@ export const connectionFriendlyOverride = {
 
       if (event === "ai:connect-provider") {
         const provider = payload?.provider;
-        if (!AI_PROVIDER_IDS.includes(provider)) return state;
+        if (!AI_PROVIDER_IDS.includes(provider) || !current.providers[provider]?.connectable) return state;
         let next = setFeatureState(state, "ai", {
           ...current,
           providers: {
@@ -206,7 +224,7 @@ export const connectionFriendlyOverride = {
                 ...refreshed.providers[provider],
                 connected: false,
                 status: "idle",
-                error: "Connexion indisponible pour le moment"
+                error: null
               }
             }
           });
@@ -239,10 +257,10 @@ export const connectionFriendlyOverride = {
 
         root.append(
           node("div", { className: "stack compact" }, [
-            node("strong", { text: "Connecte les IA que tu veux utiliser" }),
+            node("strong", { text: "Connexions IA" }),
             node("p", {
               className: "muted",
-              text: "MeliApp ne te demande ni clé API ni endpoint ici. Tu autorises simplement les services que tu veux utiliser."
+              text: "Aucune fausse connexion : un bouton n’est activé que lorsqu’un vrai OAuth délégué est configuré pour MeliApp."
             })
           ]),
           node("div", { className: "ai-connect-grid" }, AI_PROVIDER_IDS.map((id) => providerCard(id, current.providers[id])))

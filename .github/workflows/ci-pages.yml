@@ -59,10 +59,21 @@ jobs:
         env:
           MS_CLIENTID: ${{ secrets.MS_CLIENTID }}
           SPOTIFY_CLIENTID: ${{ secrets.SPOTIFY_CLIENTID }}
+          SPOTIFY_SECRET_PRESENT: ${{ secrets.SPOTIFY_SECRET != '' && '1' || '' }}
         shell: bash
         run: |
           if [ -z "$MS_CLIENTID" ]; then
             echo "MS_CLIENTID is required in the github-pages environment."
+            exit 1
+          fi
+
+          if [ -z "$SPOTIFY_CLIENTID" ]; then
+            if [ -n "$SPOTIFY_SECRET_PRESENT" ]; then
+              echo "SPOTIFY_SECRET is present but cannot be exposed in a static GitHub Pages app."
+              echo "Add the public Spotify Client ID as SPOTIFY_CLIENTID. The Client Secret is intentionally unused with PKCE."
+            else
+              echo "SPOTIFY_CLIENTID is required in the github-pages environment."
+            fi
             exit 1
           fi
 
@@ -77,11 +88,7 @@ jobs:
           NODE
 
           echo "Microsoft OAuth client ID injected."
-          if [ -n "$SPOTIFY_CLIENTID" ]; then
-            echo "Spotify OAuth client ID injected."
-          else
-            echo "Spotify client ID not configured yet; Spotify connection will remain unavailable."
-          fi
+          echo "Spotify OAuth client ID injected."
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
