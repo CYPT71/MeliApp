@@ -1,6 +1,7 @@
 import { createApp } from "./core/app.js";
 import { EVENTS } from "./core/events.js";
 import { features } from "./core/registry.js";
+import { routeFromHash } from "./core/router.js";
 import { createInitialState, mergePersistedState } from "./core/state.js";
 import { createIndexedDbStorage } from "./services/storage.js";
 import { createNotificationService } from "./services/notifications.js";
@@ -18,13 +19,15 @@ const services = {
 };
 
 let app;
+let route = routeFromHash(window.location.hash);
 
 const rerender = (state) =>
   renderFeatures({
     root,
     registry: features,
     state,
-    dispatch: app.dispatch
+    dispatch: app.dispatch,
+    route
   });
 
 app = createApp({
@@ -44,6 +47,11 @@ bindFeatureActions({
 
 rerender(app.getState());
 await app.dispatch(EVENTS.APP_START);
+
+window.addEventListener("hashchange", () => {
+  route = routeFromHash(window.location.hash);
+  rerender(app.getState());
+});
 
 window.addEventListener("online", () => app.dispatch(EVENTS.APP_ONLINE));
 window.addEventListener("offline", () => app.dispatch(EVENTS.APP_OFFLINE));
