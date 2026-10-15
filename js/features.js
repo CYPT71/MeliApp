@@ -99,6 +99,7 @@ const rankedCandidates = (state, now = Date.now()) => {
 };
 
 const normalizeTaskPayload = (payload = {}) => ({
+  ...payload,
   id: payload.id ?? uid("task"),
   title: String(payload.title ?? "").trim(),
   projectId: payload.projectId || null,

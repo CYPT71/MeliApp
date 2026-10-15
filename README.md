@@ -297,3 +297,7 @@ qu’elle est visible. Une bannière propose **Mettre à jour** ou **Plus tard**
 L’actualisation sauvegarde les données et brouillons avant d’activer le nouveau
 Service Worker ; le cache précédent reste utilisé jusqu’à l’acceptation.
 Les simples commits GitHub sans déploiement ne provoquent pas d’actualisation.
+
+Dans Pas à pas, le sélecteur **Tâche à accompagner** reste visible en haut et propose les tâches en cours, y compris les sous-tâches. Le bouton **Commencer ou reprendre** ouvre le repère correspondant sans effacer les autres sessions.
+
+Pour créer une tâche, saisir son titre puis utiliser **Ajouter** ou Entrée. Les options conservent le titre saisi. Depuis un projet, **Ajouter une tâche** ouvre ce formulaire avec le projet présélectionné. Une tâche créée est affichée dans la liste ; les filtres sont réinitialisés pour qu’elle reste visible.

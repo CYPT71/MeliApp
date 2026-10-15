@@ -111,3 +111,18 @@ test("nested subtasks keep their order and already completed steps are not repea
   assert.deepEqual(saved.steps.map((step) => step.id), ["veg", "knob"]);
   assert.equal(saved.steps.find((step) => !step.done).id, "knob");
 });
+
+test("choosing an existing task persists the selection without starting or losing the current session", async () => {
+  const app = appFor();
+  await app.dispatch("guide:choose", { taskId: "meal" });
+  assert.equal(app.getState().features.guided.selectedTaskId, "meal");
+  assert.equal(app.getState().features.guided.activeTaskId, null);
+  await app.dispatch("guide:start", { taskId: "meal" });
+  await app.dispatch("guide:choose", { taskId: "veg" });
+  await app.dispatch("guide:note", { note: "Contexte conservé" });
+  assert.equal(app.getState().features.guided.selectedTaskId, "veg");
+  assert.equal(app.getState().features.guided.activeTaskId, "meal");
+  assert.equal(session(app).note, "Contexte conservé");
+  await app.dispatch("guide:choose", { taskId: "missing" });
+  assert.equal(app.getState().features.guided.selectedTaskId, "veg");
+});

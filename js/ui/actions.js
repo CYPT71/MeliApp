@@ -9,6 +9,7 @@ export const bindFeatureActions = ({ root, registry, dispatch, getState }) => {
     const actionName = target.dataset.action;
     const found = findAction(registry, actionName);
     if (!found) return;
+    if (event.type === "submit") event.preventDefault();
 
     await found.handler({
       event,
@@ -21,7 +22,7 @@ export const bindFeatureActions = ({ root, registry, dispatch, getState }) => {
 
   const submit = (event) => {
     const form = event.target;
-    if (!form.matches?.('form[data-submit-action]')) return;
+    if (!form.matches?.('form[data-submit-action]')) return listener(event);
     event.preventDefault();
     const button = [...form.querySelectorAll('[data-action]')].find(
       button => button.dataset.action === form.dataset.submitAction

@@ -492,7 +492,7 @@ export const advancedFeatures = {
             flow: { active: false, mode: "free", taskId: null, startedAt: null, endedAt: null, suggestedMinutes: null },
             game: { xp: 0, level: 1, lastGain: 0 },
             guided: { sessions: {}, activeTaskId: null },
-            taskWorkspace: { ...state.features?.taskWorkspace, draftProjectId: null, expandedId: null, editingId: null },
+            taskWorkspace: { ...state.features?.taskWorkspace, draft: {}, draftProjectId: null, expandedId: null, editingId: null, query: "", statusFilter: "active", projectFilter: "all" },
             achievements: { unlocked: [] }
           }
         };

@@ -354,8 +354,9 @@ export const projectFeatures = {
         "projects.filter-query": ({ event, target, dispatch }) => event.type === "change" ? dispatch("project:filter", { key: "query", value: target.value }) : undefined,
         "projects.filter-status": ({ event, target, dispatch }) => event.type === "change" ? dispatch("project:filter", { key: "statusFilter", value: target.value }) : undefined,
         "projects.add-task": async ({ target, dispatch }) => {
-          await dispatch("tasks:project-draft", { id: target.dataset.id });
+          await dispatch("tasks:prepare-create", { projectId: target.dataset.id });
           location.hash = "#/tasks";
+          requestAnimationFrame(() => document.querySelector('.task-quick-create [name="title"]')?.focus({ preventScroll: false }));
         }
       }
     }

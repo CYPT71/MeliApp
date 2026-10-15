@@ -23,7 +23,7 @@ export const captureContinuity = (root, route, event) => {
   const focus = sameRoute ? identity(active) : null;
   const selection = active && typeof active.selectionStart === 'number'
     ? [active.selectionStart, active.selectionEnd] : null;
-  const quickDraft = sameRoute && event !== 'task:created'
+  const quickDraft = sameRoute && !['task:created', 'tasks:create-reset', 'tasks:prepare-create'].includes(event)
     ? [...new Map([
       ...(previous.quickDraft ?? []).map(field => [JSON.stringify(field.key), field]),
       ...[...root.querySelectorAll('.task-quick-create input, .task-quick-create select')].map(input => {
@@ -33,7 +33,7 @@ export const captureContinuity = (root, route, event) => {
     ]).values()] : [];
   const navScroll = root.querySelector('.feature-nav')?.scrollLeft ?? 0;
   const hadDialog = !!root.querySelector('dialog');
-  const focusedValue = sameRoute && event !== "task:created" && active?.matches('input[type="search"], input[type="text"], input:not([type]), textarea') ? active.value : undefined;
+  const focusedValue = sameRoute && !['task:created', 'tasks:create-reset', 'tasks:prepare-create'].includes(event) && active?.matches('input[type="search"], input[type="text"], input:not([type]), textarea') ? active.value : undefined;
   const context = { route, focus, focusedValue, selection, quickDraft, navScroll, sameRoute, hadDialog,
     returnFocus: previous?.returnFocus };
   contexts.set(root, context);

@@ -42,7 +42,8 @@ export const createDraftService = ({ storage, onError }) => {
       }
     },
     async clearFor(event, route, payload) {
-      if (event === 'task:created') delete drafts[`${route}:task`];
+      if (event === 'tasks:prepare-create') delete drafts['tasks:task'];
+      else if (event === 'task:created' || event === 'tasks:create-reset') delete drafts[`${route}:task`];
       else if (event === 'project:create') delete drafts[`${route}:project:`];
       else if (event === 'project:update') {
         for (const key of Object.keys(drafts)) if (key.startsWith(`${route}:project:`) && key !== `${route}:project:`) delete drafts[key];
