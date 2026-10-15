@@ -16,28 +16,20 @@ export const featureCategories = Object.freeze({
     order: 10,
     features: ["microsoftAuth", "outlookSync", "calendarView", "manualSync"]
   },
-  organize: {
-    id: "organize",
-    path: "organize",
-    title: "Organisation",
+  day: {
+    id: "day",
+    path: "day",
+    title: "Journée",
     icon: "🧭",
     order: 20,
-    features: ["tasks", "taskEditor", "projects"]
-  },
-  focus: {
-    id: "focus",
-    path: "focus",
-    title: "Focus",
-    icon: "🔥",
-    order: 30,
-    features: ["flow"]
+    features: ["tasks", "taskEditor", "projects", "flow"]
   },
   progress: {
     id: "progress",
     path: "progress",
     title: "Progression",
     icon: "🏆",
-    order: 40,
+    order: 30,
     features: ["game", "stats", "achievements"]
   },
   settings: {
@@ -45,7 +37,7 @@ export const featureCategories = Object.freeze({
     path: "settings",
     title: "Réglages & connexions",
     icon: "⚙️",
-    order: 50,
+    order: 40,
     features: [
       "spotify",
       "ai",
