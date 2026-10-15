@@ -1,263 +1,181 @@
 # MeliApp / FlowQuest — TODO
 
-> État réel du projet. Une case cochée correspond à du code présent dans le dépôt. On essaie ainsi d’éviter la tradition ancestrale du README qui décrit un produit trois versions en avance sur la réalité.
+> État réel du projet. Une case cochée correspond à du code présent dans le dépôt.
 
 ## 0. Architecture
 
 - [x] Full static GitHub Pages.
 - [x] HTML/CSS/JavaScript ES Modules.
 - [x] Registre runtime unique de features.
-- [x] Registre extensible par composition `baseFeatures + advancedFeatures + overrides`.
-- [x] État initial dérivé de `feature.state`.
+- [x] Composition `base + advanced + overrides`.
+- [x] État dérivé de `feature.state`.
 - [x] Runner générique par événements.
-- [x] `dispatch` unique et queue d’exécution.
-- [x] Isolation des erreurs feature par feature.
 - [x] Persistance IndexedDB.
-- [x] Actions UI via délégation `data-action`.
-- [x] Pages déclaratives via `page`.
-- [x] Catégories déclaratives via `category`.
-- [x] Une feature peut rejoindre une catégorie avec `category: "nom"`.
-- [x] Une catégorie peut aussi être détaillée avec `id/path/title/icon/order`.
-- [x] Plusieurs features d’une même catégorie sont rendues sur la même page.
-- [x] Une seule entrée de navigation est générée par catégorie.
-- [x] `feature-categories.js` évite de répéter les métadonnées de catégorie.
-- [x] Une catégorie déclarée directement sur une feature prend priorité.
-- [x] `ui.visible`, `ui.order`, état et actions sans câblage métier dans le core.
-- [x] Services injectés pour tous les effets externes.
-- [x] Tests unitaires avec `node:test`.
-- [x] CI/CD GitHub Actions vers GitHub Pages.
+- [x] Actions UI via `data-action`.
+- [x] Pages et catégories déclaratives.
+- [x] Services injectés pour les effets externes.
+- [x] Tests unitaires `node:test`.
+- [x] CI/CD GitHub Actions.
 
 ## 1. Navigation produit
 
-- [x] Accueil minimal : énergie + mission actuelle.
-- [x] `#/calendar` : Outlook + synchronisation + agenda.
-- [x] `#/organize` : tâches + éditeur + projets/Boss.
-- [x] `#/focus` : modes de session.
+- [x] `#/calendar` : Outlook + agenda.
+- [x] `#/tasks` : tâches + matrice + mindmap + projets + découpage.
+- [x] `#/day` : Flow / focus.
 - [x] `#/progress` : XP + statistiques + succès.
-- [x] `#/integrations` : Spotify + IA.
-- [x] `#/settings` : préférences + notifications + installation + données + diagnostic.
-- [x] Raccourcis PWA alignés sur les nouvelles catégories.
-- [x] En-tête unique de catégorie + sous-sections par feature.
-- [ ] Tester la densité visuelle réelle sur petit écran Android.
-- [ ] Ajouter éventuellement des ancres internes de section si une catégorie devient trop longue.
+- [x] `#/settings` : connexions + préférences + données + diagnostic.
+- [x] Raccourci PWA Tâches.
+- [ ] Tester la densité réelle sur petit écran Android.
 
 ## 2. Outlook = calendrier
 
-- [x] Outlook traité comme calendrier, pas comme identité métier MeliApp.
-- [x] Authorization Code + PKCE, client public.
+- [x] PKCE public client.
 - [x] Aucun `client_secret`.
-- [x] Scope `Calendars.ReadWrite`.
-- [x] Lecture `calendarView` Microsoft Graph.
-- [x] Normalisation des événements.
-- [x] Synchronisation au démarrage, reprise et manuelle.
-- [x] Refresh OAuth quand disponible.
-- [x] Écriture d’un bloc de focus depuis la mission courante.
-- [x] Toutes les fonctions Outlook regroupées dans la catégorie Agenda.
-- [ ] Renseigner `microsoftClientId` dans `js/config.js`.
-- [ ] Enregistrer l’URL GitHub Pages comme redirect URI SPA dans Entra.
-- [ ] Valider consentement sur comptes personnels et tenant cible.
-- [ ] Tester les politiques d’entreprise qui bloquent `Calendars.ReadWrite`.
+- [x] Lecture et écriture calendrier.
+- [x] Erreurs de configuration techniques masquées à l’utilisateur.
+- [ ] Renseigner le `microsoftClientId` du déploiement.
+- [ ] Enregistrer la redirect URI GitHub Pages dans Entra.
+- [ ] Tester comptes personnels + tenant cible.
 
-## 3. Énergie et préférences
+## 3. Énergie
 
-- [x] Énergie 1 à 10.
-- [x] Seuil faible énergie.
-- [x] Expiration de l’énergie.
-- [x] Recalcul du planner.
-- [x] Adaptation des chunks à faible énergie.
-- [x] Seuil énergie configurable.
-- [x] Expiration configurable.
-- [x] Marge agenda configurable dans l’état.
-- [x] Mode de travail par défaut configurable.
-- [x] Début / fin de journée enregistrés.
-- [x] Fenêtre silencieuse pour rappels.
-- [ ] Faire utiliser `calendarBufferMinutes`, `dayStart` et `dayEnd` directement par tous les calculs du planner.
+- [x] Sélecteur visuel sans chiffres.
+- [x] Interaction fluide sans rerender global pendant le drag.
+- [x] Adaptation du planner.
+- [x] Seuil faible énergie et expiration.
+- [ ] Faire utiliser toutes les préférences horaires par tous les calculs de fenêtre.
 
-## 4. Tâches / Organisation
+## 4. Tâches
 
-- [x] Création.
-- [x] Mise à jour.
-- [x] Suppression.
-- [x] Complétion.
-- [x] Report.
-- [x] Progression.
-- [x] Deadline.
+- [x] CRUD tâches.
+- [x] Échéance.
 - [x] Difficulté.
-- [x] Importance.
+- [x] Importance 1 à 5.
 - [x] Durée estimée.
-- [x] Découpage.
-- [x] Éditeur détaillé inline.
-- [x] Association à un projet/Boss.
-- [x] Tâches + éditeur + Boss regroupés sur Organisation.
-- [ ] Retirer définitivement l’ancien fallback d’édition `prompt()`.
+- [x] Progression.
+- [x] Projet/Boss.
+- [x] Onglet Tâches dédié.
+- [x] Vue Liste.
+- [x] Matrice d’Eisenhower calculée depuis importance + échéance.
+- [x] Vue Mindmap projet → tâche → sous-tâche.
+- [x] Nœuds Mindmap avec échéance, importance, durée, progression et quadrant.
+- [x] Tâches sans projet visibles dans « Sans projet ».
+- [x] Découpage manuel en sous-tâches.
+- [x] Découpage manuel récompensé en XP.
+- [x] Plafond anti-farming des XP de découpage.
+- [x] Bouton « Aide-moi » pour découpage IA.
+- [x] Découpage IA marqué `splitSource: ai`.
+- [x] Découpage IA = 0 XP de découpage.
+- [ ] Ajouter édition directe d’une sous-tâche depuis la Mindmap si les tests utilisateurs le justifient.
 - [ ] Ajouter dépendances entre tâches uniquement si besoin produit réel.
 
-## 5. Projets / Boss
+## 5. Matrice d’Eisenhower
 
-- [x] Création de projet.
+- [x] Important = importance 4 ou 5.
+- [x] Urgent = échéance dans les 3 jours ou dépassée.
+- [x] Important + urgent → À faire maintenant.
+- [x] Important + non urgent → À planifier.
+- [x] Urgent + moins important → Rapide / délégable.
+- [x] Ni urgent ni important → À garder léger.
+- [x] Tests unitaires des quatre quadrants.
+- [ ] Rendre le seuil d’urgence configurable si les retours utilisateurs le demandent.
+
+## 6. Projets / Boss
+
+- [x] Création.
 - [x] Deadline projet.
-- [x] Association de tâches.
-- [x] Progression calculée depuis les tâches.
-- [x] Succès « Boss vaincu ».
-- [ ] Édition du nom/deadline depuis l’UI.
-- [ ] Barre de vie plus visuelle avec `prefers-reduced-motion` respecté.
+- [x] Association tâches.
+- [x] Progression calculée.
+- [x] Présence comme racines de la Mindmap.
+- [ ] Édition nom/deadline depuis l’UI.
 
-## 6. Planner local
+## 7. Planner local
 
-- [x] Score urgence.
+- [x] Urgence.
 - [x] Importance.
-- [x] adéquation énergie.
-- [x] adéquation au créneau.
-- [x] découpage automatique.
-- [x] changement manuel de mission.
-- [x] réduction en micro-action.
-- [x] fonctionnement sans IA.
-- [x] stabilité anti-zapping.
-- [x] changement volontaire respecté.
-- [ ] Utiliser toutes les préférences horaires dans le calcul des fenêtres libres.
-- [ ] Ajouter pénalité de changement de contexte par projet/catégorie si les tests utilisateurs le justifient.
-
-## 7. Écran Maintenant
-
-- [x] Mission principale unique.
 - [x] Énergie.
-- [x] prochain événement Outlook.
-- [x] durée suggérée.
-- [x] COMMENCER.
-- [x] Changer.
-- [x] Réduire.
-- [x] Reporter.
-- [x] Je suis bloqué.
-- [x] Suggestion IA ou fallback local.
-- [x] Bouton pour bloquer la mission dans Outlook.
+- [x] Créneau disponible.
+- [x] Découpage automatique.
+- [x] Stabilité anti-zapping.
+- [x] Fonctionnement sans IA.
+- [ ] Ajouter pénalité de changement de contexte par projet si nécessaire.
 
-## 8. Flow / Libre / Focus / Pomodoro
-
-- [x] Session avec timestamps.
-- [x] Mode Libre.
-- [x] Flow.
-- [x] Focus guidé.
-- [x] Pomodoro optionnel.
-- [x] Calcul sans dépendre d’un `setInterval` persistant.
-- [x] historique de sessions.
-- [ ] Ajouter compteur visuel réactif tant que la page Focus est visible.
-- [ ] Ajouter reprise explicite d’une session interrompue.
-
-## 9. Gamification / Progression
+## 8. Gamification
 
 - [x] XP.
-- [x] niveaux.
-- [x] XP démarrage et complétion.
-- [x] aucun retrait d’XP en cas de report.
-- [x] Boss/projets.
-- [x] succès déclaratifs.
-- [x] statistiques de tâches, minutes et XP.
-- [x] progression regroupée sur une seule page.
-- [ ] Ajouter cosmétiques locaux seulement si cela reste non distrayant.
+- [x] Niveaux.
+- [x] XP de session et tâche.
+- [x] Aucun retrait d’XP au report.
+- [x] XP de découpage manuel.
+- [x] Aucun XP de découpage IA.
+- [x] Limite anti-farming du découpage manuel.
+- [ ] Ajuster les valeurs XP après tests d’usage.
 
-## 10. Spotify optionnel
+## 9. IA optionnelle
 
-- [x] PKCE public client.
-- [x] lecture via Web API.
-- [x] refresh token.
-- [x] playlists low-energy/focus/recovery/boss.
-- [x] bibliothèque de playlists utilisateur.
-- [x] sélection depuis l’UI.
-- [x] fallback si lecture automatique échoue.
-- [x] low-energy déclenché seulement sous le seuil configuré.
-- [x] Spotify regroupé avec IA dans Connexions.
+- [x] Hub unique limité à GPT, Claude et Gemini.
+- [x] Interface sous forme de connexions.
+- [x] Simple / Secours / Fusion.
+- [x] Fallback local.
+- [x] Méthode `decompose()` pour petites étapes structurées.
+- [x] Validation du tableau JSON retourné pour le découpage.
+- [ ] Brancher les vrais adaptateurs d’authentification fournisseur quand disponibles pour le déploiement.
+- [ ] Ajouter schéma structuré pour d’autres recommandations multi-champs.
+
+## 10. Spotify
+
+- [x] PKCE.
+- [x] Bibliothèque de playlists.
+- [x] Modes low-energy/focus/recovery/boss.
+- [x] Fallback lecture.
 - [ ] Renseigner `spotifyClientId`.
-- [ ] Enregistrer la redirect URI Spotify.
-- [ ] Tester Premium + appareil actif + restrictions Web API.
-- [ ] Ajouter deep-link natif Spotify en fallback sans device actif.
+- [ ] Tester avec compte/appareil réels.
 
-## 11. IA optionnelle
-
-- [x] Désactivable.
-- [x] endpoint et modèle configurables.
-- [x] aide « Je suis bloqué ».
-- [x] fallback local.
-- [x] aucun code arbitraire exécuté depuis une réponse.
-- [ ] Ajouter schéma JSON strict pour recommandations multi-champs.
-- [ ] Vérifier/ajouter timeout `AbortController`.
-- [ ] Ajouter minimisation explicite des données envoyées.
-- [ ] Choisir le mécanisme d’authentification du fournisseur réellement retenu.
-
-## 12. Notifications
-
-- [x] permission utilisateur.
-- [x] service Notification natif.
-- [x] rappels opportunistes avant événement.
-- [x] quiet hours.
-- [x] prévention des doublons.
-- [ ] Push distant fiable hors périmètre full static sans émetteur/backend.
-- [ ] Tester Android installé / iOS home-screen.
-
-## 13. PWA
+## 11. PWA / offline
 
 - [x] Manifest.
 - [x] Service Worker.
-- [x] cache offline du shell.
-- [x] cache des fichiers de catégories/features.
-- [x] bouton installation si supporté.
-- [x] aide iOS.
-- [x] icône SVG scalable.
-- [x] raccourcis Agenda / Organisation / Focus / Réglages.
-- [x] métadonnées standalone.
-- [ ] Ajouter PNG 192/512 si les audits ciblés l’exigent.
+- [x] Cache shell.
+- [x] Cache styles/modules Tâches.
+- [x] Installation navigateur.
+- [x] Raccourci `#/tasks`.
 - [ ] UX de mise à jour contrôlée pendant une session Flow.
 
-## 14. Données / confidentialité locale
+## 12. Tests
 
-- [x] IndexedDB.
-- [x] export JSON.
-- [x] import JSON.
-- [x] reset données produit.
-- [x] diagnostic local.
-- [x] effacement diagnostics.
-- [x] tokens OAuth exclus de l’export et stockés en `sessionStorage`.
-- [ ] Versionner formellement les migrations futures.
-- [ ] Validation JSON plus stricte à l’import.
-
-## 15. Tests
-
-- [x] core / registry / runner.
-- [x] pages déclaratives.
-- [x] catégories déclaratives.
-- [x] déduplication d’une route de catégorie.
-- [x] priorité catégorie déclarée directement sur la feature.
-- [x] détection d’une feature placée dans deux catégories.
-- [x] scoring / scheduling / XP / reducers.
-- [x] features produit.
-- [x] projets / stabilité planner.
-- [x] Outlook mocké.
-- [x] Spotify mocké.
-- [x] reset données.
+- [x] Core / registry / runner.
+- [x] Routing / catégories.
+- [x] Scoring / scheduling / XP.
+- [x] Énergie.
+- [x] Connexions.
+- [x] Eisenhower.
+- [x] Découpage manuel → XP.
+- [x] Découpage IA → 0 XP.
+- [x] Cap anti-farming.
 - [ ] E2E navigateur Playwright ou équivalent.
-- [ ] tests OAuth réels avec configuration dédiée.
-- [ ] audit Lighthouse PWA/accessibilité après configuration Pages.
+- [ ] Tests OAuth réels.
+- [ ] Audit Lighthouse PWA/accessibilité.
 
-## 16. Bloquants externes
+## 13. Bloquants externes
 
-- [ ] `microsoftClientId`.
+- [ ] `microsoftClientId` du déploiement.
 - [ ] Redirect URI Entra.
 - [ ] Consentement Microsoft Graph.
 - [ ] `spotifyClientId` si Spotify est activé.
 - [ ] Redirect URI Spotify.
-- [ ] Choix concret du fournisseur IA pour sortir du mode expérimental.
+- [ ] Adaptateurs d’auth IA réellement supportés par les fournisseurs ciblés.
 
-## 17. Definition of Done MVP réaliste
+## 14. Definition of Done MVP
 
-- [x] site statique servable directement ;
-- [x] features déclaratives ;
-- [x] catégories déclaratives sans câblage du routeur par feature ;
-- [x] planner fonctionnel sans IA ;
-- [x] Spotify optionnel ;
-- [x] Pomodoro optionnel ;
-- [x] Flow non interrompu arbitrairement ;
-- [x] état persisté localement ;
-- [x] export/import ;
-- [ ] Outlook testé avec vrais identifiants et vrai calendrier ;
-- [ ] pipeline de la branche finale vert ;
+- [x] site statique ;
+- [x] architecture déclarative ;
+- [x] planner sans IA ;
+- [x] onglet Tâches dédié ;
+- [x] matrice Eisenhower ;
+- [x] mindmap ;
+- [x] découpage manuel/IA avec règle XP ;
+- [x] état persistant localement ;
+- [ ] Outlook testé avec vrai calendrier ;
+- [ ] pipeline final vert ;
 - [ ] test manuel Android PWA ;
 - [ ] principaux parcours E2E navigateur.
