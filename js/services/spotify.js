@@ -8,6 +8,12 @@ const SCOPES = [
   "user-library-read"
 ];
 const TOKEN_URL = "https://accounts.spotify.com/api/token";
+const FOCUS_QUERIES = Object.freeze([
+  "instrumental focus",
+  "lofi focus",
+  "ambient focus",
+  "brown noise focus"
+]);
 
 const spotifyHttpError = ({ status, path, data }) => {
   const rawMessage = data?.error?.message ?? data?.error_description ?? data?.error ?? "Réponse Spotify sans détail";
@@ -210,6 +216,34 @@ export const createSpotifyService = ({ clientId }) => {
     }));
   };
 
+  const searchFocusTracks = async ({ limit = 12 } = {}) => {
+    const max = Math.min(20, Math.max(1, Number(limit) || 12));
+    const seen = new Set();
+    const tracks = [];
+
+    for (const query of FOCUS_QUERIES) {
+      if (tracks.length >= max) break;
+      const path = `/search?type=track&limit=${Math.min(8, max)}&q=${encodeURIComponent(query)}`;
+      const data = await request(path);
+      for (const track of data?.tracks?.items ?? []) {
+        if (!track?.uri || seen.has(track.uri)) continue;
+        seen.add(track.uri);
+        tracks.push({
+          id: track.id,
+          name: track.name ?? "Titre",
+          uri: track.uri,
+          artists: (track.artists ?? []).map((artist) => artist.name).filter(Boolean),
+          album: track.album?.name ?? "",
+          image: track.album?.images?.[0]?.url ?? null,
+          durationMs: track.duration_ms ?? null,
+          source: "focus-discovery"
+        });
+        if (tracks.length >= max) break;
+      }
+    }
+    return tracks;
+  };
+
   return {
     login,
     logout,
@@ -222,6 +256,7 @@ export const createSpotifyService = ({ clientId }) => {
     getPlayback,
     listPlaylists,
     listSavedTracks,
+    searchFocusTracks,
     isConnected: () => Boolean(token),
     isConfigured: () => configured,
     scopes: () => [...SCOPES]
