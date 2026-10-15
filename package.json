@@ -1,0 +1,10 @@
+{
+  "name": "meliapp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "check": "node --check js/main.js && node --check js/core/app.js && node --check js/core/registry.js && node --check js/core/state.js && node --check js/domain/scoring.js && node --check js/domain/scheduling.js && node --check js/domain/xp.js && node --check js/domain/reducers.js"
+  }
+}

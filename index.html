@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#111111">
+  <meta name="description" content="MeliApp, PWA adaptative de planification et de focus.">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="stylesheet" href="./css/base.css">
+  <title>MeliApp</title>
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <p class="eyebrow">MeliApp</p>
+      <h1>FlowQuest</h1>
+    </div>
+    <span class="status" id="network-status" aria-live="polite"></span>
+  </header>
+
+  <main id="app" class="app" aria-live="polite"></main>
+
+  <noscript>Cette application nécessite JavaScript.</noscript>
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>
