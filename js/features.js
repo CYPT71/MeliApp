@@ -212,7 +212,7 @@ export const features = {
         return {
           ...setFeatureState(next, "outlookSync", { syncing: false, lastSyncAt: syncedAt, error: null, categoryError: services.outlook.getCategoryError?.() ?? null }),
           auth: { ...state.auth, microsoft: { ...(state.auth?.microsoft ?? {}), connected: true } },
-          calendar: { events: events.map((event) => ({ ...event, calendarName: calendarNames.get(event.calendarId) ?? event.calendarName ?? null })), lastSyncAt: syncedAt }
+          calendar: { calendars: calendars ?? state.calendar?.calendars ?? [], events: events.map((event) => ({ ...event, calendarName: calendarNames.get(event.calendarId) ?? event.calendarName ?? null })), lastSyncAt: syncedAt }
         };
       } catch (error) {
         const next = setFeatureState(state, "outlookSync", (current) => ({

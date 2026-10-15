@@ -14,7 +14,7 @@ export const featureCategories = Object.freeze({
     title: "Agenda",
     icon: "🗓️",
     order: 10,
-    features: ["microsoftAuth", "outlookSync", "calendarView", "manualSync"]
+    features: ["microsoftAuth", "calendarSources", "outlookSync", "calendarView", "manualSync"]
   },
   tasks: {
     id: "tasks",
@@ -46,7 +46,7 @@ export const featureCategories = Object.freeze({
     title: "Journée",
     icon: "🧭",
     order: 30,
-    features: ["flow"]
+    features: ["adaptiveSchedule", "flow"]
   },
   progress: {
     id: "progress",

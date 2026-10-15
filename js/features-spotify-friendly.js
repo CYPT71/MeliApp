@@ -33,12 +33,14 @@ const normalize = (state) => ({
   configured: true,
   playlists: [],
   tracks: [],
+  focusTracks: [],
   devices: [],
   selectedDeviceId: null,
   playback: null,
   loading: false,
   error: null,
   playbackError: null,
+  discoveryError: null,
   autoplayBlocked: false,
   lowEnergy: "",
   focus: "",
@@ -48,6 +50,7 @@ const normalize = (state) => ({
 });
 
 const spotifyEndpointLabel = (path = "") => {
+  if (/\/search/.test(path)) return "les suggestions musicales";
   if (/\/me\/playlists/.test(path)) return "tes playlists";
   if (/\/me\/tracks/.test(path)) return "tes titres aimés";
   if (/\/me\/player\/devices/.test(path)) return "tes appareils Spotify";
@@ -59,7 +62,6 @@ const spotifyEndpointLabel = (path = "") => {
 
 const friendlyError = (message = "") => {
   if (!message) return "";
-
   const raw = String(message);
   const http = raw.match(/^SPOTIFY_HTTP_(\d+)\|([^|]*)\|(.*)$/s);
   if (http) {
@@ -67,7 +69,6 @@ const friendlyError = (message = "") => {
     const status = Number(statusText);
     const target = spotifyEndpointLabel(path);
     const detail = spotifyMessage && spotifyMessage !== "Réponse Spotify sans détail" ? ` Détail Spotify : ${spotifyMessage}` : "";
-
     if (status === 400) return `Spotify a refusé la requête pour ${target} (HTTP 400). Vérifie l’appareil sélectionné et les paramètres envoyés.${detail}`;
     if (status === 401) return `La session Spotify n’est plus valide (HTTP 401). Déconnecte puis reconnecte Spotify.${detail}`;
     if (status === 403) return `Spotify refuse l’accès à ${target} (HTTP 403). Vérifie que ton compte est autorisé dans l’app Spotify en mode développement et, pour le contrôle de lecture, que le compte est Premium.${detail}`;
@@ -76,13 +77,10 @@ const friendlyError = (message = "") => {
     if (status >= 500) return `Spotify rencontre une erreur serveur (HTTP ${status}) pendant l’accès à ${target}. Réessaie plus tard.${detail}`;
     return `Spotify a répondu HTTP ${status} pendant l’accès à ${target}.${detail}`;
   }
-
   const network = raw.match(/^SPOTIFY_NETWORK\|([^|]*)\|(.*)$/s);
   if (network) return `Impossible de joindre Spotify pour ${spotifyEndpointLabel(network[1])}. Vérifie la connexion réseau ou un éventuel blocage du navigateur. Détail : ${network[2]}`;
-
   const expired = raw.match(/^SPOTIFY_SESSION_EXPIRED\|([^|]*)\|(.*)$/s);
   if (expired) return `La session Spotify a expiré pendant l’accès à ${spotifyEndpointLabel(expired[1])}. Reconnecte ton compte.`;
-
   if (/SPOTIFY_NOT_CONNECTED/i.test(raw)) return "Spotify n’est pas connecté. Reconnecte ton compte.";
   if (/SPOTIFY_CONFIGURATION_MISSING|client id|configuration/i.test(raw)) return "La connexion Spotify n’est pas configurée pour cette version de MeliApp.";
   if (/invalid_client|invalid client/i.test(raw)) return "Spotify refuse le Client ID configuré. Vérifie que SPOTIFY_CLIENTID contient bien le Client ID public de l’application Spotify.";
@@ -117,9 +115,19 @@ const loadLibrary = async (services) => {
   const playback = settledValue(playbackResult, null);
   const libraryError = settledError(playlistsResult) || settledError(tracksResult);
   const playbackError = settledError(devicesResult) || settledError(playbackResult);
+  let focusTracks = [];
+  let discoveryError = null;
 
-  if (libraryError && !playlists.length && !tracks.length) throw new Error(libraryError);
-  return { playlists, tracks, devices, playback, playbackError };
+  if (!playlists.length) {
+    try {
+      focusTracks = await (services.spotify.searchFocusTracks?.({ limit: 12 }) ?? []);
+    } catch (error) {
+      discoveryError = error instanceof Error ? error.message : String(error);
+    }
+  }
+
+  if (libraryError && !playlists.length && !tracks.length && !focusTracks.length) throw new Error(libraryError);
+  return { playlists, tracks, focusTracks, devices, playback, playbackError, discoveryError };
 };
 
 const playbackSummary = (playback) => {
@@ -128,20 +136,20 @@ const playbackSummary = (playback) => {
   return `${playback.playing ? "En lecture" : "En pause"} · ${playback.item.name}${artists ? ` · ${artists}` : ""}`;
 };
 
-const playlistRow = (playlist) => node("article", { className: "list-item row row--between spotify-library-row" }, [
-  node("div", { className: "stack compact" }, [
-    node("strong", { text: playlist.name }),
-    node("small", { className: "muted", text: `${playlist.tracks ?? 0} titres${playlist.owner ? ` · ${playlist.owner}` : ""}` })
-  ]),
-  button("▶", "spotify.play-playlist", { className: "primary", "data-uri": playlist.uri, "aria-label": `Lancer la playlist ${playlist.name}` })
-]);
-
 const trackRow = (track) => node("article", { className: "list-item row row--between spotify-library-row" }, [
   node("div", { className: "stack compact" }, [
     node("strong", { text: track.name }),
     node("small", { className: "muted", text: `${track.artists?.join(", ") || "Artiste"}${track.album ? ` · ${track.album}` : ""}` })
   ]),
   button("▶", "spotify.play-track", { className: "primary", "data-uri": track.uri, "aria-label": `Lancer ${track.name}` })
+]);
+
+const playlistRow = (playlist) => node("article", { className: "list-item row row--between spotify-library-row" }, [
+  node("div", { className: "stack compact" }, [
+    node("strong", { text: playlist.name }),
+    node("small", { className: "muted", text: `${playlist.tracks ?? 0} titres${playlist.owner ? ` · ${playlist.owner}` : ""}` })
+  ]),
+  button("▶", "spotify.play-playlist", { className: "primary", "data-uri": playlist.uri, "aria-label": `Lancer la playlist ${playlist.name}` })
 ]);
 
 const devicePicker = (current) => {
@@ -166,7 +174,7 @@ const render = ({ state }) => {
     node("div", { className: "stack compact" }, [
       node("strong", { text: current.connected ? "Spotify connecté" : "Connecte Spotify" }),
       node("span", { className: "muted", text: current.connected
-        ? "Lance tes playlists et tes titres aimés directement depuis MeliApp."
+        ? "Lance tes playlists, tes titres aimés ou une sélection de focus depuis MeliApp."
         : "MeliApp accède uniquement à ta bibliothèque et au contrôle de lecture après ton autorisation." })
     ])
   ]));
@@ -198,8 +206,29 @@ const render = ({ state }) => {
   const playlists = node("section", { className: "stack" }, [
     node("div", { className: "row row--between" }, [node("h3", { text: "Mes playlists" }), node("span", { className: "task-count", text: String(current.playlists.length) })])
   ]);
-  if (!current.playlists.length) playlists.append(node("p", { className: "muted", text: current.loading ? "Chargement…" : "Aucune playlist trouvée." }));
+  if (!current.playlists.length) {
+    playlists.append(node("p", {
+      className: "muted",
+      text: current.loading
+        ? "Chargement…"
+        : "Aucune playlist personnelle trouvée. MeliApp te propose quelques sons de focus doux à tester selon ton ressenti."
+    }));
+  }
   for (const playlist of current.playlists) playlists.append(playlistRow(playlist));
+
+  if (!current.playlists.length && current.focusTracks.length) {
+    const focus = node("section", { className: "stack" }, [
+      node("div", { className: "row row--between" }, [
+        node("h3", { text: "Suggestions de focus" }),
+        node("span", { className: "task-count", text: String(current.focusTracks.length) })
+      ]),
+      node("p", { className: "muted", text: "Instrumental, ambient, lo-fi et sons continus. Ce sont des options de confort, pas un traitement." })
+    ]);
+    for (const track of current.focusTracks) focus.append(trackRow(track));
+    root.append(focus);
+  } else if (!current.playlists.length && current.discoveryError) {
+    root.append(node("p", { className: "hint", text: `Suggestions indisponibles : ${friendlyError(current.discoveryError)}` }));
+  }
 
   const tracks = node("section", { className: "stack" }, [
     node("div", { className: "row row--between" }, [node("h3", { text: "Titres aimés" }), node("span", { className: "task-count", text: String(current.tracks.length) })])
@@ -221,12 +250,14 @@ export const spotifyFriendlyOverride = {
       configured: true,
       playlists: [],
       tracks: [],
+      focusTracks: [],
       devices: [],
       selectedDeviceId: null,
       playback: null,
       loading: false,
       error: null,
-      playbackError: null
+      playbackError: null,
+      discoveryError: null
     },
     when: [...new Set([...(featureOverrides.spotify.when ?? []), "spotify:refresh", "spotify:select-device", "spotify:play-playlist", "spotify:play-track", "spotify:resume", "spotify:pause"])],
     run: async ({ state, event, payload, services }) => {
@@ -267,13 +298,20 @@ export const spotifyFriendlyOverride = {
       }
       if (event === "spotify:logout") {
         await services.spotify?.logout?.();
-        return setFeatureState(state, "spotify", { ...current, connected: false, playlists: [], tracks: [], devices: [], playback: null, error: null, playbackError: null });
+        return setFeatureState(state, "spotify", { ...current, connected: false, playlists: [], tracks: [], focusTracks: [], devices: [], playback: null, error: null, playbackError: null, discoveryError: null });
       }
       if (event === "spotify:select-device") return setFeatureState(state, "spotify", { ...current, selectedDeviceId: payload?.deviceId ?? null, error: null });
       if (event === "spotify:refresh") {
         try {
           const library = await loadLibrary(services);
-          return setFeatureState(state, "spotify", { ...current, ...library, connected: true, loading: false, selectedDeviceId: library.playback?.deviceId ?? chooseDeviceId({ ...current, ...library }), error: null });
+          return setFeatureState(state, "spotify", {
+            ...current,
+            ...library,
+            connected: true,
+            loading: false,
+            selectedDeviceId: library.playback?.deviceId ?? chooseDeviceId({ ...current, ...library }),
+            error: null
+          });
         } catch (error) {
           return setFeatureState(state, "spotify", { ...current, connected: Boolean(services.spotify?.isConnected?.()), loading: false, error: error instanceof Error ? error.message : String(error) });
         }

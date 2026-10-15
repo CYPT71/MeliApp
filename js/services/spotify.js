@@ -8,6 +8,12 @@ const SCOPES = [
   "user-library-read"
 ];
 const TOKEN_URL = "https://accounts.spotify.com/api/token";
+const FOCUS_QUERIES = Object.freeze([
+  "instrumental focus",
+  "lofi focus",
+  "ambient focus",
+  "brown noise focus"
+]);
 
 const spotifyHttpError = ({ status, path, data }) => {
   const rawMessage = data?.error?.message ?? data?.error_description ?? data?.error ?? "Réponse Spotify sans détail";
@@ -16,6 +22,19 @@ const spotifyHttpError = ({ status, path, data }) => {
   error.path = path;
   error.spotifyMessage = String(rawMessage);
   return error;
+};
+
+const spotifyWebUrl = (uri = null) => {
+  const match = String(uri ?? "").match(/^spotify:(track|playlist|album|artist):([A-Za-z0-9]+)$/);
+  if (!match) return "https://open.spotify.com/";
+  const [, type, id] = match;
+  return `https://open.spotify.com/${type}/${id}`;
+};
+
+const isPlaybackForbidden = (error) => Number(error?.status) === 403 && /\/me\/player/.test(String(error?.path ?? ""));
+
+const redirectToSpotify = (uri = null) => {
+  location.assign(spotifyWebUrl(uri));
 };
 
 export const createSpotifyService = ({ clientId }) => {
@@ -128,23 +147,50 @@ export const createSpotifyService = ({ clientId }) => {
 
   const play = async (contextUri, deviceId = null) => {
     if (!contextUri) return;
-    await request(playerPath("/me/player/play", deviceId), {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ context_uri: contextUri })
-    });
+    try {
+      await request(playerPath("/me/player/play", deviceId), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ context_uri: contextUri })
+      });
+    } catch (error) {
+      if (isPlaybackForbidden(error)) {
+        redirectToSpotify(contextUri);
+        return;
+      }
+      throw error;
+    }
   };
 
   const playTrack = async (trackUri, deviceId = null) => {
     if (!trackUri) return;
-    await request(playerPath("/me/player/play", deviceId), {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ uris: [trackUri] })
-    });
+    try {
+      await request(playerPath("/me/player/play", deviceId), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ uris: [trackUri] })
+      });
+    } catch (error) {
+      if (isPlaybackForbidden(error)) {
+        redirectToSpotify(trackUri);
+        return;
+      }
+      throw error;
+    }
   };
 
-  const resume = async (deviceId = null) => request(playerPath("/me/player/play", deviceId), { method: "PUT" });
+  const resume = async (deviceId = null) => {
+    try {
+      return await request(playerPath("/me/player/play", deviceId), { method: "PUT" });
+    } catch (error) {
+      if (isPlaybackForbidden(error)) {
+        redirectToSpotify();
+        return null;
+      }
+      throw error;
+    }
+  };
+
   const pause = async (deviceId = null) => request(playerPath("/me/player/pause", deviceId), { method: "PUT" });
 
   const listDevices = async () => {
@@ -210,6 +256,34 @@ export const createSpotifyService = ({ clientId }) => {
     }));
   };
 
+  const searchFocusTracks = async ({ limit = 12 } = {}) => {
+    const max = Math.min(20, Math.max(1, Number(limit) || 12));
+    const seen = new Set();
+    const tracks = [];
+
+    for (const query of FOCUS_QUERIES) {
+      if (tracks.length >= max) break;
+      const path = `/search?type=track&limit=${Math.min(8, max)}&q=${encodeURIComponent(query)}`;
+      const data = await request(path);
+      for (const track of data?.tracks?.items ?? []) {
+        if (!track?.uri || seen.has(track.uri)) continue;
+        seen.add(track.uri);
+        tracks.push({
+          id: track.id,
+          name: track.name ?? "Titre",
+          uri: track.uri,
+          artists: (track.artists ?? []).map((artist) => artist.name).filter(Boolean),
+          album: track.album?.name ?? "",
+          image: track.album?.images?.[0]?.url ?? null,
+          durationMs: track.duration_ms ?? null,
+          source: "focus-discovery"
+        });
+        if (tracks.length >= max) break;
+      }
+    }
+    return tracks;
+  };
+
   return {
     login,
     logout,
@@ -222,6 +296,7 @@ export const createSpotifyService = ({ clientId }) => {
     getPlayback,
     listPlaylists,
     listSavedTracks,
+    searchFocusTracks,
     isConnected: () => Boolean(token),
     isConfigured: () => configured,
     scopes: () => [...SCOPES]

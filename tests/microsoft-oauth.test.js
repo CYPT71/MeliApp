@@ -140,7 +140,7 @@ test("Outlook lists calendars across pages and requests only selected calendar I
   };
   try {
     const service = createOutlookService({ clientId: "test-client" });
-    assert.deepEqual(await service.listCalendars(), [{ id: "work/id", name: "Travail", isDefault: true }, { id: "personal", name: "Personnel", isDefault: false }]);
+    assert.deepEqual(await service.listCalendars(), [{ id: "work/id", name: "Travail", isDefault: true, isDefaultCalendar: true, color: null, canEdit: true }, { id: "personal", name: "Personnel", isDefault: false, isDefaultCalendar: false, color: null, canEdit: true }]);
     const events = await service.listEvents({ from: "2026-10-15", to: "2026-10-16", calendarIds: ["work/id"] });
     assert.equal(events[0].calendarId, "work/id");
     const count = paths.length;

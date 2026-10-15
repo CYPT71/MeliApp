@@ -136,14 +136,15 @@ export const createOutlookService = ({ clientId, tenant = "common", authMode = "
 
   const listCalendars = async () => {
     const calendars = [];
-    let path = "/me/calendars?$select=id,name,isDefaultCalendar";
+    let path = "/me/calendars?$select=id,name,color,isDefaultCalendar,canEdit";
     const visited = new Set();
     while (path) {
       if (visited.has(path)) throw new Error("Pagination des agendas interrompue");
       visited.add(path);
       const data = await request(path);
       calendars.push(...(data?.value ?? []).map((calendar) => ({
-        id: calendar.id, name: calendar.name ?? "Agenda", isDefault: Boolean(calendar.isDefaultCalendar)
+        id: calendar.id, name: calendar.name ?? "Agenda", isDefault: Boolean(calendar.isDefaultCalendar),
+        isDefaultCalendar: Boolean(calendar.isDefaultCalendar), color: calendar.color ?? null, canEdit: calendar.canEdit !== false
       })));
       const next = data?.["@odata.nextLink"];
       if (next && !next.startsWith("https://graph.microsoft.com/v1.0/")) throw new Error("Lien des agendas invalide");
@@ -152,15 +153,15 @@ export const createOutlookService = ({ clientId, tenant = "common", authMode = "
     return calendars;
   };
 
-  const listEvents = async ({ from, to, calendarIds }) => {
+  const listEvents = async ({ from, to, calendarIds, calendarId: singleCalendarId = null, calendarName = null }) => {
     const params = new URLSearchParams({
       startDateTime: from,
       endDateTime: to,
       "$orderby": "start/dateTime",
-      "$select": "id,subject,start,end,isAllDay,location,webLink,categories"
+      "$select": "id,subject,start,end,isAllDay,location,webLink,categories,isOnlineMeeting,onlineMeeting,onlineMeetingProvider"
     });
     const items = [];
-    for (const calendarId of calendarIds === undefined ? [null] : [...new Set(calendarIds)]) {
+    for (const calendarId of calendarIds === undefined ? [singleCalendarId] : [...new Set(calendarIds)]) {
       let path = calendarId === null ? `/me/calendarView?${params.toString()}` : `/me/calendars/${encodeURIComponent(calendarId)}/calendarView?${params.toString()}`;
       const visited = new Set();
       while (path) {
@@ -195,7 +196,11 @@ export const createOutlookService = ({ clientId, tenant = "common", authMode = "
     }
     return items.map((event) => ({
       id: event.id,
-      calendarId: event.calendarId,
+      calendarId: event.calendarId ?? "default",
+      calendarName: calendarName ?? "Calendrier principal",
+      isOnlineMeeting: Boolean(event.isOnlineMeeting),
+      onlineMeetingProvider: event.onlineMeetingProvider ?? null,
+      onlineMeetingUrl: event.onlineMeeting?.joinUrl ?? null,
       title: event.subject ?? "Événement",
       start: event.start?.dateTime ? `${event.start.dateTime}${event.start.timeZone === "UTC" ? "Z" : ""}` : null,
       end: event.end?.dateTime ? `${event.end.dateTime}${event.end.timeZone === "UTC" ? "Z" : ""}` : null,
