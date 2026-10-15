@@ -1,4 +1,4 @@
-const CACHE = "meliapp-shell-v28";
+const CACHE = "meliapp-shell-v29";
 const SHELL = [
   "./",
   "./index.html",
@@ -9,6 +9,7 @@ const SHELL = [
   "./css/tasks.css",
   "./css/projects.css",
   "./css/settings.css",
+  "./css/item-inspector.css",
   "./js/features-calendar.js",
   "./js/domain/calendar.js",
   "./js/domain/outlook-categories.js",
@@ -31,6 +32,10 @@ const SHELL = [
   "./js/features-calendar-tasks.js",
   "./js/features-tasks-workspace.js",
   "./js/features-projects.js",
+  "./js/features-item-inspector.js",
+  "./js/features-item-popup-overrides.js",
+  "./js/features-quick-search.js",
+  "./js/features-local-ai.js",
   "./js/feature-categories.js",
   "./js/config.js",
   "./js/core/app.js",
@@ -49,6 +54,7 @@ const SHELL = [
   "./js/services/outlook.js",
   "./js/services/spotify.js",
   "./js/services/ai.js",
+  "./js/services/local-ai.js",
   "./js/services/install.js",
   "./js/services/index.js",
   "./js/ui/actions.js",
