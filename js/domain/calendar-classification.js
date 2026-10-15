@@ -29,7 +29,7 @@ export const classifyCalendarEvent = (event = {}, role = BOTH) => {
 };
 
 export const calendarRoleForEvent = (event = {}, roles = {}) =>
-  normalizeCalendarRole(roles?.[event.calendarId] ?? BOTH);
+  normalizeCalendarRole(roles?.[eventKey(event)] ?? roles?.[event.calendarId] ?? BOTH);
 
 export const placementForEvent = (event = {}, preferences = {}, defaultRangeMinutes = 120) => {
   const key = eventKey(event);

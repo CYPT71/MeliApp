@@ -10,7 +10,7 @@ const expected = {
   mindmap: ["taskMindmap"],
   day: ["adaptiveSchedule", "flow"],
   progress: ["game", "stats", "achievements"],
-  settings: ["schedulePreferences", "spotify", "ai", "settings", "notifications", "install", "dataManagement", "diagnostics"]
+  settings: ["localAi", "schedulePreferences", "quickSearch", "spotify", "ai", "settings", "notifications", "install", "dataManagement", "diagnostics"]
 };
 
 test("production categories keep coherent features together", () => {
