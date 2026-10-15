@@ -1,11 +1,11 @@
 export const ENERGY_MOODS = Object.freeze([
-  { max: 12, emoji: "😠", label: "À plat" },
-  { max: 28, emoji: "😟", label: "Très basse" },
-  { max: 45, emoji: "🙁", label: "Basse" },
-  { max: 58, emoji: "😕", label: "Moyenne basse" },
-  { max: 72, emoji: "😐", label: "Stable" },
-  { max: 86, emoji: "🙂", label: "Bonne" },
-  { max: 100, emoji: "😄", label: "Très bonne" }
+  { max: 12, emoji: "🪫", label: "Vidée" },
+  { max: 28, emoji: "🫠", label: "En vrac" },
+  { max: 45, emoji: "🐢", label: "Au ralenti" },
+  { max: 58, emoji: "🌿", label: "Tranquille" },
+  { max: 72, emoji: "⚡", label: "En forme" },
+  { max: 86, emoji: "🚀", label: "À fond" },
+  { max: 100, emoji: "🤯", label: "Cerveau en feu" }
 ]);
 
 export const clampEnergyPercent = (value) =>
@@ -30,5 +30,5 @@ export const energyGuidance = (percent) => {
   if (value <= 40) return "On réduit la friction : petites étapes et sessions courtes.";
   if (value <= 65) return "Énergie moyenne : rythme normal, sans surcharger la journée.";
   if (value <= 85) return "Bonne énergie : une tâche exigeante devient raisonnable.";
-  return "Très bonne énergie : fenêtre favorable pour du travail profond si tu en as envie.";
+  return "Énergie maximale : profite du boost sans remplir toute ta journée juste parce que ton cerveau a décidé de lancer les feux d’artifice.";
 };
