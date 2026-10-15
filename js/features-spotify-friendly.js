@@ -47,15 +47,52 @@ const normalize = (state) => ({
   ...featureState(state, "spotify", {})
 });
 
+const spotifyEndpointLabel = (path = "") => {
+  if (/\/me\/playlists/.test(path)) return "tes playlists";
+  if (/\/me\/tracks/.test(path)) return "tes titres aimés";
+  if (/\/me\/player\/devices/.test(path)) return "tes appareils Spotify";
+  if (/\/me\/player\/play/.test(path)) return "le démarrage de la lecture";
+  if (/\/me\/player\/pause/.test(path)) return "la mise en pause";
+  if (/\/me\/player/.test(path)) return "le lecteur Spotify";
+  return "Spotify";
+};
+
 const friendlyError = (message = "") => {
   if (!message) return "";
-  if (/SPOTIFY_CONFIGURATION_MISSING|client id|configuration/i.test(message)) return "La connexion Spotify n’est pas configurée pour cette version de MeliApp.";
-  if (/invalid_client|invalid client/i.test(message)) return "Le Client ID Spotify configuré n’est pas accepté par Spotify.";
-  if (/redirect|uri/i.test(message)) return "Spotify refuse l’adresse de retour. Vérifie que https://cypt71.github.io/MeliApp/ est enregistrée exactement dans le Dashboard Spotify.";
-  if (/premium|403/i.test(message)) return "Spotify est connecté, mais cette fonction de lecture peut nécessiter Premium et une app autorisée en mode développement.";
-  if (/active device|device not found|no active device/i.test(message)) return "Ouvre Spotify sur un appareil, lance une musique une fois, puis réessaie ici.";
-  if (/expir|401/i.test(message)) return "La session Spotify a expiré. Reconnecte ton compte.";
-  return String(message);
+
+  const raw = String(message);
+  const http = raw.match(/^SPOTIFY_HTTP_(\d+)\|([^|]*)\|(.*)$/s);
+  if (http) {
+    const [, statusText, path, spotifyMessage] = http;
+    const status = Number(statusText);
+    const target = spotifyEndpointLabel(path);
+    const detail = spotifyMessage && spotifyMessage !== "Réponse Spotify sans détail" ? ` Détail Spotify : ${spotifyMessage}` : "";
+
+    if (status === 400) return `Spotify a refusé la requête pour ${target} (HTTP 400). Vérifie l’appareil sélectionné et les paramètres envoyés.${detail}`;
+    if (status === 401) return `La session Spotify n’est plus valide (HTTP 401). Déconnecte puis reconnecte Spotify.${detail}`;
+    if (status === 403) return `Spotify refuse l’accès à ${target} (HTTP 403). Vérifie que ton compte est autorisé dans l’app Spotify en mode développement et, pour le contrôle de lecture, que le compte est Premium.${detail}`;
+    if (status === 404) return `Spotify ne trouve pas la ressource nécessaire pour ${target} (HTTP 404). Pour le lecteur, ouvre Spotify sur un appareil et lance un titre une fois.${detail}`;
+    if (status === 429) return `Spotify limite temporairement les requêtes (HTTP 429). Attends un moment avant de réessayer.${detail}`;
+    if (status >= 500) return `Spotify rencontre une erreur serveur (HTTP ${status}) pendant l’accès à ${target}. Réessaie plus tard.${detail}`;
+    return `Spotify a répondu HTTP ${status} pendant l’accès à ${target}.${detail}`;
+  }
+
+  const network = raw.match(/^SPOTIFY_NETWORK\|([^|]*)\|(.*)$/s);
+  if (network) return `Impossible de joindre Spotify pour ${spotifyEndpointLabel(network[1])}. Vérifie la connexion réseau ou un éventuel blocage du navigateur. Détail : ${network[2]}`;
+
+  const expired = raw.match(/^SPOTIFY_SESSION_EXPIRED\|([^|]*)\|(.*)$/s);
+  if (expired) return `La session Spotify a expiré pendant l’accès à ${spotifyEndpointLabel(expired[1])}. Reconnecte ton compte.`;
+
+  if (/SPOTIFY_NOT_CONNECTED/i.test(raw)) return "Spotify n’est pas connecté. Reconnecte ton compte.";
+  if (/SPOTIFY_CONFIGURATION_MISSING|client id|configuration/i.test(raw)) return "La connexion Spotify n’est pas configurée pour cette version de MeliApp.";
+  if (/invalid_client|invalid client/i.test(raw)) return "Spotify refuse le Client ID configuré. Vérifie que SPOTIFY_CLIENTID contient bien le Client ID public de l’application Spotify.";
+  if (/redirect|uri/i.test(raw)) return "Spotify refuse l’adresse de retour. Vérifie que https://cypt71.github.io/MeliApp/ est enregistrée exactement dans le Dashboard Spotify.";
+  if (/invalid_grant/i.test(raw)) return "Spotify a refusé le code de connexion. Recharge MeliApp puis recommence la connexion Spotify.";
+  if (/access_denied/i.test(raw)) return "La connexion Spotify a été refusée ou annulée par l’utilisateur.";
+  if (/premium/i.test(raw)) return `Le contrôle de lecture Spotify nécessite généralement Premium. Détail : ${raw}`;
+  if (/active device|device not found|no active device/i.test(raw)) return "Aucun appareil Spotify actif n’a été trouvé. Ouvre Spotify sur ton téléphone ou ordinateur et lance un titre une fois.";
+  if (/expir|401/i.test(raw)) return "La session Spotify a expiré. Reconnecte ton compte.";
+  return `Spotify : ${raw}`;
 };
 
 const chooseDeviceId = (current, requested = null) =>
