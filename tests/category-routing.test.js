@@ -8,7 +8,8 @@ test("production registry exposes the expected grouped navigation", () => {
   const pages = featurePages(features);
   const byPath = Object.fromEntries(pages.map((entry) => [entry.page.path, entry]));
 
-  for (const name of ["microsoftAuth", "calendarView", "outlookSync", "manualSync"]) assert.ok(byPath.calendar.names.includes(name));
+  for (const name of ["calendarView", "outlookSync", "manualSync"]) assert.ok(byPath.calendar.names.includes(name));
+  assert.ok(!byPath.calendar.names.includes("microsoftAuth"));
   assert.ok(!byPath.calendar.names.includes("calendarSources"));
   assert.ok(byPath.tasks.names.includes("taskWorkspace"));
   assert.ok(byPath.tasks.names.includes("tasks"));
@@ -18,6 +19,7 @@ test("production registry exposes the expected grouped navigation", () => {
   assert.deepEqual(byPath.projects.names, ["projects"]);
   assert.deepEqual(byPath.day.names, ["flow", "adaptiveSchedule"]);
   assert.ok(byPath.progress.names.includes("game"));
+  assert.ok(byPath.settings.names.includes("microsoftAuth"));
   assert.ok(byPath.settings.names.includes("schedulePreferences"));
   assert.ok(byPath.settings.names.includes("spotify"));
   assert.ok(byPath.settings.names.includes("ai"));
