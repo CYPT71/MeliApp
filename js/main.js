@@ -1,8 +1,8 @@
 import { createApp } from "./core/app.js";
 import { EVENTS } from "./core/events.js";
+import { features } from "./core/registry.js";
 import { routeFromHash } from "./core/router.js";
 import { createInitialState, mergePersistedState } from "./core/state.js";
-import { features } from "./features.js";
 import { createServices } from "./services/index.js";
 import { bindFeatureActions } from "./ui/actions.js";
 import { renderFeatures } from "./ui/render.js";
