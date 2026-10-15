@@ -1,6 +1,5 @@
 import { featureOverrides } from "./features-overrides.js";
 import {
-  ENERGY_MOODS,
   energyGuidance,
   energyMood,
   energyPercentToScore,
@@ -38,6 +37,30 @@ const closestChoice = (percent) =>
     Math.abs(choice.percent - percent) < Math.abs(best.percent - percent) ? choice : best
   );
 
+const updatePreview = (slider) => {
+  const percent = Number(slider.value);
+  const root = slider.closest(".energy-feeling");
+  if (!root) return;
+
+  const mood = energyMood(percent);
+  const active = closestChoice(percent);
+  root.style.setProperty("--energy", `${percent}%`);
+  slider.setAttribute("aria-valuetext", mood.label);
+
+  for (const choice of root.querySelectorAll(".energy-feeling__choice")) {
+    const selected = Number(choice.dataset.percent) === active.percent;
+    choice.classList.toggle("is-current", selected);
+    choice.setAttribute("aria-checked", selected ? "true" : "false");
+  }
+
+  const statusEmoji = root.querySelector(".energy-feeling__status-emoji");
+  const statusLabel = root.querySelector(".energy-feeling__status-label");
+  const statusGuidance = root.querySelector(".energy-feeling__status-guidance");
+  if (statusEmoji) statusEmoji.textContent = mood.emoji;
+  if (statusLabel) statusLabel.textContent = mood.label;
+  if (statusGuidance) statusGuidance.textContent = energyGuidance(percent);
+};
+
 const energyGauge = (score) => {
   const percent = energyScoreToPercent(score);
   const mood = energyMood(percent);
@@ -54,7 +77,7 @@ const energyGauge = (score) => {
     ]),
     node("p", {
       className: "energy-feeling__prompt muted",
-      text: "Choisis la tête qui ressemble le plus à ton énergie du moment. Pas besoin de calculer quoi que ce soit, miracle administratif."
+      text: "Choisis simplement le visage qui te ressemble le plus maintenant."
     })
   );
 
@@ -96,11 +119,11 @@ const energyGauge = (score) => {
   root.append(
     choices,
     node("div", { className: "energy-feeling__rail" }, [slider]),
-    node("div", { className: "energy-feeling__status" }, [
+    node("div", { className: "energy-feeling__status", "aria-live": "polite" }, [
       node("span", { className: "energy-feeling__status-emoji", text: mood.emoji }),
       node("div", { className: "stack compact" }, [
-        node("strong", { text: mood.label }),
-        node("small", { className: "muted", text: energyGuidance(percent) })
+        node("strong", { className: "energy-feeling__status-label", text: mood.label }),
+        node("small", { className: "muted energy-feeling__status-guidance", text: energyGuidance(percent) })
       ])
     ])
   );
@@ -117,10 +140,19 @@ export const energyFriendlyOverride = {
       render: ({ state }) => energyGauge(state.features?.energy?.value ?? 5),
       actions: {
         ...featureOverrides.energy.ui.actions,
-        "energy.pick-feeling": ({ target, dispatch }) =>
-          dispatch("energy:set", { value: energyPercentToScore(target.dataset.percent) }),
-        "energy.set-percent-friendly": ({ target, dispatch }) =>
-          dispatch("energy:set", { value: energyPercentToScore(target.value) })
+        "energy.pick-feeling": ({ event, target, dispatch }) => {
+          if (event.type !== "click") return;
+          return dispatch("energy:set", { value: energyPercentToScore(target.dataset.percent) });
+        },
+        "energy.set-percent-friendly": ({ event, target, dispatch }) => {
+          if (event.type === "input") {
+            updatePreview(target);
+            return;
+          }
+          if (event.type === "change") {
+            return dispatch("energy:set", { value: energyPercentToScore(target.value) });
+          }
+        }
       }
     }
   }
