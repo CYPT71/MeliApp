@@ -7,7 +7,7 @@ const setFeatureState = (state, name, next) => ({
   ...state,
   features: {
     ...(state.features ?? {}),
-    [name]: typeof next === "function" ? next(featureState(state, name, fallback)) : next
+    [name]: typeof next === "function" ? next(featureState(state, name, {})) : next
   }
 });
 
@@ -79,9 +79,9 @@ const syncRun = async ({ state, services }) => {
     const nearToday = +range.end >= now - 86400000 && +range.start <= now + 14 * 86400000;
     const from = new Date(nearToday ? Math.min(+range.start, now - 86400000) : +range.start).toISOString();
     const to = new Date(nearToday ? Math.max(+range.end, now + 14 * 86400000) : +range.end).toISOString();
-    let calendars = await services.outlook.listCalendars?.();
+    let calendars = typeof services.outlook.listCalendars === "function" ? await services.outlook.listCalendars() : null;
     if (!Array.isArray(calendars) || !calendars.length) calendars = [{ id: "default", name: "Calendrier principal", isDefaultCalendar: true, fallback: true }];
-    const groups = await Promise.all(calendars.map(async (calendar) => services.outlook.listEvents({
+    const groups = await Promise.all(calendars.map((calendar) => services.outlook.listEvents({
       from,
       to,
       calendarId: calendar.fallback ? null : calendar.id,
