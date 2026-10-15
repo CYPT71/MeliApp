@@ -44,20 +44,11 @@ export const createOutlookService = ({ clientId, tenant = "common", authMode = "
 
   const restore = async () => {
     if (!configured) return null;
-    const callback = await consumePkceCallback({
-      tokenUrl,
-      clientId: normalizedClientId,
-      storageKey: KEY
-    });
+    const callback = await consumePkceCallback({ tokenUrl, clientId: normalizedClientId, storageKey: KEY });
     if (callback) saveTokens(callback);
     if (!token && refreshToken) {
       try {
-        saveTokens(await refreshPublicClientToken({
-          tokenUrl,
-          clientId: normalizedClientId,
-          refreshToken,
-          scopes: delegatedScopes
-        }));
+        saveTokens(await refreshPublicClientToken({ tokenUrl, clientId: normalizedClientId, refreshToken, scopes: delegatedScopes }));
       } catch {
         refreshToken = null;
         sessionStorage.removeItem(`${KEY}:refresh_token`);
@@ -73,10 +64,7 @@ export const createOutlookService = ({ clientId, tenant = "common", authMode = "
       clientId: normalizedClientId,
       storageKey: KEY,
       scopes: delegatedScopes,
-      extra: {
-        response_mode: "query",
-        prompt: "select_account"
-      }
+      extra: { response_mode: "query", prompt: "select_account" }
     });
   };
 
@@ -89,12 +77,7 @@ export const createOutlookService = ({ clientId, tenant = "common", authMode = "
 
   const renew = async () => {
     if (!configured || !refreshToken) return false;
-    const data = await refreshPublicClientToken({
-      tokenUrl,
-      clientId: normalizedClientId,
-      refreshToken,
-      scopes: delegatedScopes
-    });
+    const data = await refreshPublicClientToken({ tokenUrl, clientId: normalizedClientId, refreshToken, scopes: delegatedScopes });
     saveTokens(data);
     return Boolean(token);
   };
@@ -104,11 +87,7 @@ export const createOutlookService = ({ clientId, tenant = "common", authMode = "
     if (!token) throw new Error("Outlook non connecté");
     const response = await fetch(`https://graph.microsoft.com/v1.0${path}`, {
       ...options,
-      headers: {
-        Accept: "application/json",
-        Authorization: `Bearer ${token}`,
-        ...(options.headers ?? {})
-      }
+      headers: { Accept: "application/json", Authorization: `Bearer ${token}`, ...(options.headers ?? {}) }
     });
     if (response.status === 401 && retry && refreshToken) {
       try {
@@ -143,8 +122,12 @@ export const createOutlookService = ({ clientId, tenant = "common", authMode = "
       visited.add(path);
       const data = await request(path);
       calendars.push(...(data?.value ?? []).map((calendar) => ({
-        id: calendar.id, name: calendar.name ?? "Agenda", isDefault: Boolean(calendar.isDefaultCalendar),
-        isDefaultCalendar: Boolean(calendar.isDefaultCalendar), color: calendar.color ?? null, canEdit: calendar.canEdit !== false
+        id: calendar.id,
+        name: calendar.name ?? "Agenda",
+        isDefault: Boolean(calendar.isDefaultCalendar),
+        isDefaultCalendar: Boolean(calendar.isDefaultCalendar),
+        color: calendar.color ?? null,
+        canEdit: calendar.canEdit !== false
       })));
       const next = data?.["@odata.nextLink"];
       if (next && !next.startsWith("https://graph.microsoft.com/v1.0/")) throw new Error("Lien des agendas invalide");
@@ -212,20 +195,47 @@ export const createOutlookService = ({ clientId, tenant = "common", authMode = "
     })).filter((event) => event.start && event.end);
   };
 
-  const createFocusBlock = async ({ title, start, end }) => {
+  const createEvent = async ({ title, start, end, body = "", showAs = "busy", categories = [] }) => {
     const startDate = start instanceof Date ? start : new Date(start);
     const endDate = end instanceof Date ? end : new Date(end);
     return request("/me/events", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        subject: `🎯 ${title}`,
-        body: { contentType: "text", content: "Bloc de focus créé par MeliApp." },
+        subject: title,
+        body: { contentType: "text", content: body },
         start: { dateTime: startDate.toISOString().replace(/Z$/, ""), timeZone: "UTC" },
         end: { dateTime: endDate.toISOString().replace(/Z$/, ""), timeZone: "UTC" },
-        showAs: "busy"
+        showAs,
+        categories
       })
     });
+  };
+
+  const createFocusBlock = ({ title, start, end }) => createEvent({
+    title: `🎯 ${title}`,
+    start,
+    end,
+    body: "Bloc de focus créé par MeliApp."
+  });
+
+  const createPlanningBlocks = async (blocks = []) => {
+    const published = [];
+    for (const block of blocks) {
+      if (!block?.startIso || !block?.endIso || !["task", "break"].includes(block.type)) continue;
+      const isBreak = block.type === "break";
+      const event = await createEvent({
+        title: isBreak ? `☕ ${block.title || "Pause"}` : `🎯 ${block.title || "Focus"}`,
+        start: block.startIso,
+        end: block.endIso,
+        body: isBreak
+          ? "Pause proposée par MeliApp dans le planning hebdomadaire."
+          : `Bloc de travail proposé par MeliApp.${block.deadline ? `\nDeadline : ${block.deadline}` : ""}${block.reason ? `\nPourquoi : ${block.reason}` : ""}`,
+        showAs: isBreak ? "free" : "busy"
+      });
+      published.push(event);
+    }
+    return published;
   };
 
   return {
@@ -235,6 +245,7 @@ export const createOutlookService = ({ clientId, tenant = "common", authMode = "
     listEvents,
     listCalendars,
     createFocusBlock,
+    createPlanningBlocks,
     isConnected: () => Boolean(token),
     isConfigured: () => configured,
     getCategoryError: () => categoryError,
