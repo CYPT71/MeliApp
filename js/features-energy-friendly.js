@@ -23,13 +23,13 @@ const node = (tag, attrs = {}, children = []) => {
 };
 
 export const ENERGY_CHOICES = Object.freeze([
-  { emoji: "😵", label: "À plat", percent: 8 },
-  { emoji: "😟", label: "Très basse", percent: 22 },
-  { emoji: "🙁", label: "Basse", percent: 36 },
-  { emoji: "😕", label: "Mitigée", percent: 50 },
-  { emoji: "😐", label: "Stable", percent: 64 },
-  { emoji: "🙂", label: "Bonne", percent: 80 },
-  { emoji: "😄", label: "Pleine", percent: 96 }
+  { emoji: "🪫", label: "Vidée", percent: 8 },
+  { emoji: "🫠", label: "En vrac", percent: 22 },
+  { emoji: "🐢", label: "Au ralenti", percent: 36 },
+  { emoji: "🌿", label: "Tranquille", percent: 50 },
+  { emoji: "⚡", label: "En forme", percent: 64 },
+  { emoji: "🚀", label: "À fond", percent: 80 },
+  { emoji: "🤯", label: "Cerveau en feu", percent: 96 }
 ]);
 
 const closestChoice = (percent) =>
@@ -77,7 +77,7 @@ const energyGauge = (score) => {
     ]),
     node("p", {
       className: "energy-feeling__prompt muted",
-      text: "Choisis simplement le visage qui te ressemble le plus maintenant."
+      text: "Choisis le symbole qui correspond le mieux à ton niveau d’énergie maintenant."
     })
   );
 
