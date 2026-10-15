@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="MeliApp">
+  <rect width="512" height="512" rx="112" fill="#111318"/>
+  <circle cx="256" cy="220" r="132" fill="#f4f4f5"/>
+  <path d="M166 238c22-69 70-103 112-103 43 0 80 25 98 66-31-15-57-16-79-3-28 17-40 53-70 72-21 13-42 16-61 11z" fill="#111318"/>
+  <path d="M154 356h204" stroke="#f4f4f5" stroke-width="32" stroke-linecap="round"/>
+  <circle cx="178" cy="356" r="22" fill="#f4f4f5"/>
+  <circle cx="334" cy="356" r="22" fill="#f4f4f5"/>
+</svg>
