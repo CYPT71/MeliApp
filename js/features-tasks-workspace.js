@@ -169,6 +169,7 @@ const taskCard = (state, task, { compact = false } = {}) => {
     compactTaskMeta(state, task)
   ]);
   card.append(main);
+  if (task.status !== "completed") card.append(button("Pas à pas", "guide.start", { "data-id": task.id, className: "guide-launch", "aria-label": `Commencer ${task.title} pas à pas` }));
 
   if (progress) {
     card.append(el("div", { className: "task-mini-progress" }, [

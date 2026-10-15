@@ -17,6 +17,7 @@ import { itemInspectorFeatures } from "../features-item-inspector.js";
 import { quickSearchFeatures } from "../features-quick-search.js";
 import { localAiFeatures } from "../features-local-ai.js";
 import { itemPopupOverrides } from "../features-item-popup-overrides.js";
+import { guidedFeatures } from "../features-guided.js";
 import { applyFeatureCategories, featureCategories } from "../feature-categories.js";
 
 export const features = Object.freeze(
@@ -39,7 +40,8 @@ export const features = Object.freeze(
     ...itemInspectorFeatures,
     ...quickSearchFeatures,
     ...localAiFeatures,
-    ...itemPopupOverrides
+    ...itemPopupOverrides,
+    ...guidedFeatures
   }, featureCategories)
 );
 

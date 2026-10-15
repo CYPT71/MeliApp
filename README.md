@@ -234,3 +234,13 @@ Dans le formulaire d’un projet, coche les **Catégories Outlook associées**. 
 Ces associations ne modifient pas Outlook et ne créent pas de tâches : l’import reste explicite. Retirer une association ne supprime aucun événement ni aucune tâche. Les rattachements manuels des tâches sont conservés.
 
 Une tâche importée reprend les noms et couleurs de catégories Outlook, visibles dans les vues de tâches et le planning. Une nouvelle synchronisation actualise ces métadonnées, y compris pour les anciennes tâches importées, sans écraser le titre modifié, la progression ou le rattachement manuel. Les événements visibles dans les projets sont ceux actuellement chargés depuis les agendas sélectionnés.
+
+## Mode Pas à pas
+
+Depuis une tâche (liste, détails ou projet), choisir **Pas à pas**. L’onglet dédié `#/step-by-step` met en avant une seule étape. Les sous-tâches existantes sont reprises dans leur ordre ; les étapes déjà terminées sont conservées. Sans sous-tâches, une première étape reprend le nom de la tâche. La liste des étapes constitue un repère de session sauvegardé.
+
+**J’ai perdu le fil** rappelle l’objectif, la dernière étape terminée et l’étape actuelle. **Faire une pause** conserve ce contexte et propose une note et le premier geste à faire au retour. Ces champs sont sauvegardés localement à la saisie. **Faire plus petit** permet de formuler un geste concret ; valider ce petit geste ne termine pas prématurément l’étape entière.
+
+Au redémarrage, une activité restée ouverte revient en pause, prête à être reprise. Changer d’activité conserve les repères de chaque tâche. Les étapes correspondant à des sous-tâches se terminent via les actions habituelles ; la tâche principale se termine uniquement après confirmation explicite. Les pauses et déclarations de décrochage ne retirent ni n’ajoutent d’XP et ne modifient pas les séries.
+
+Cette première version n’envoie pas de rappels automatiques et ne prétend pas détecter l’attention. Les rappels réglables et les retours réflexifs sont prévus pour une évolution après essais du parcours.

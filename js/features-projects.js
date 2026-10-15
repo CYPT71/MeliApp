@@ -205,7 +205,8 @@ const projectCard = (state, project) => {
       list.append(el("div", { className: `project-task-row${categoryPresentation(task).style ? " has-outlook-category" : ""}`, style: categoryPresentation(task).style }, [
         el("span", { text: task.status === "completed" ? "✓" : "○" }),
         el("span", { text: task.title }),
-        el("small", { className: "muted", text: task.deadline ? dateLabel(task.deadline) : "" })
+        el("small", { className: "muted", text: task.deadline ? dateLabel(task.deadline) : "" }),
+        task.status !== "completed" ? button("Pas à pas", "guide.start", { "data-id": task.id, "aria-label": `Commencer ${task.title} pas à pas` }) : null
       ]));
     }
     root.append(list);

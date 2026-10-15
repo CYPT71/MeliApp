@@ -40,6 +40,7 @@ const taskForm = (state, task) => {
   const defaultRange = featureState(state, "schedulePreferences", { defaultFlexRangeMinutes: 120 }).defaultFlexRangeMinutes ?? 120;
   return node("form", { className: "inspector-form stack" }, [
     node("h2", { text: "Préciser la tâche" }),
+    task.status !== "completed" ? node("button", { type: "button", "data-action": "guide.start", "data-id": task.id, text: "Commencer pas à pas" }) : null,
     field("Titre", "title", { value: task.title ?? "" }),
     node("div", { className: "inspector-grid" }, [
       field("Échéance", "deadline", { type: "datetime-local", value: task.deadline ? String(task.deadline).slice(0, 16) : "" }),
