@@ -1,16 +1,62 @@
 import { beginPkce, consumePkceCallback, refreshPublicClientToken } from "./oauth.js";
 
 const KEY = "meliapp:microsoft";
+const ACCOUNTS_KEY = `${KEY}:accounts`;
+const ACTIVE_KEY = `${KEY}:active_account`;
 const DEFAULT_SCOPES = ["openid", "profile", "offline_access", "Calendars.ReadWrite", "MailboxSettings.Read"];
 const CONFIG_ERROR = "OUTLOOK_CONFIGURATION_MISSING";
 const AUTH_MODE_ERROR = "OUTLOOK_AUTH_MODE_MUST_BE_DELEGATED";
+const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
 
 const normalizeScopes = (scopes) => {
   const unique = [...new Set((Array.isArray(scopes) ? scopes : DEFAULT_SCOPES).map((scope) => String(scope).trim()).filter(Boolean))];
-  for (const required of ["openid", "profile", "offline_access", "Calendars.ReadWrite", "MailboxSettings.Read"]) {
-    if (!unique.includes(required)) unique.push(required);
-  }
+  for (const required of DEFAULT_SCOPES) if (!unique.includes(required)) unique.push(required);
   return unique;
+};
+
+const decodeJwtPayload = (token) => {
+  try {
+    const payload = String(token ?? "").split(".")[1];
+    if (!payload) return null;
+    const base64 = payload.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(payload.length / 4) * 4, "=");
+    const bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
+    return JSON.parse(new TextDecoder().decode(bytes));
+  } catch {
+    return null;
+  }
+};
+
+export const accountIdentityFromTokens = (data = {}) => {
+  const claims = decodeJwtPayload(data.id_token) ?? decodeJwtPayload(data.access_token) ?? {};
+  const email = claims.preferred_username ?? claims.email ?? claims.upn ?? null;
+  const id = String(claims.oid ?? claims.sub ?? claims.sid ?? email ?? `microsoft_${Date.now()}`);
+  return {
+    id,
+    name: claims.name ?? email ?? "Compte Microsoft",
+    email,
+    tenantId: claims.tid ?? null
+  };
+};
+
+export const encodeCalendarRef = (accountId, calendarId) => `${encodeURIComponent(String(accountId))}::${encodeURIComponent(String(calendarId))}`;
+
+export const decodeCalendarRef = (value, fallbackAccountId = null) => {
+  const text = String(value ?? "");
+  const separator = text.indexOf("::");
+  if (separator < 0) return { accountId: fallbackAccountId, calendarId: text || null };
+  return {
+    accountId: decodeURIComponent(text.slice(0, separator)),
+    calendarId: decodeURIComponent(text.slice(separator + 2))
+  };
+};
+
+const readJson = (storage, key, fallback) => {
+  try {
+    const raw = storage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch {
+    return fallback;
+  }
 };
 
 export const createOutlookService = ({ clientId, tenant = "common", authMode = "delegated", scopes = DEFAULT_SCOPES }) => {
@@ -22,39 +68,110 @@ export const createOutlookService = ({ clientId, tenant = "common", authMode = "
   const configured = Boolean(normalizedClientId);
   const authorizeUrl = `https://login.microsoftonline.com/${normalizedTenant}/oauth2/v2.0/authorize`;
   const tokenUrl = `https://login.microsoftonline.com/${normalizedTenant}/oauth2/v2.0/token`;
-  let token = sessionStorage.getItem(`${KEY}:access_token`);
-  let refreshToken = sessionStorage.getItem(`${KEY}:refresh_token`);
-
   let categoryError = null;
+  let accounts = Array.isArray(readJson(sessionStorage, ACCOUNTS_KEY, [])) ? readJson(sessionStorage, ACCOUNTS_KEY, []) : [];
+  let activeAccountId = sessionStorage.getItem(ACTIVE_KEY);
+
+  const persist = () => {
+    sessionStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts));
+    if (activeAccountId) sessionStorage.setItem(ACTIVE_KEY, activeAccountId);
+    else sessionStorage.removeItem(ACTIVE_KEY);
+  };
+
+  const publicAccount = (account) => account ? ({
+    id: account.id,
+    name: account.name ?? account.email ?? "Compte Microsoft",
+    email: account.email ?? null,
+    tenantId: account.tenantId ?? null,
+    connected: Boolean(account.accessToken || account.refreshToken),
+    active: account.id === activeAccountId
+  }) : null;
+
+  const accountById = (id) => accounts.find((account) => account.id === id) ?? null;
+  const activeAccount = () => accountById(activeAccountId) ?? accounts[0] ?? null;
+
+  const normalizeActive = () => {
+    if (!accountById(activeAccountId)) activeAccountId = accounts[0]?.id ?? null;
+    persist();
+  };
+
+  const migrateLegacy = () => {
+    if (accounts.length) return;
+    const accessToken = sessionStorage.getItem(`${KEY}:access_token`);
+    const refreshToken = sessionStorage.getItem(`${KEY}:refresh_token`);
+    if (!accessToken && !refreshToken) return;
+    accounts = [{ id: "legacy", name: "Compte Microsoft", email: null, tenantId: null, accessToken, refreshToken }];
+    activeAccountId = "legacy";
+    sessionStorage.removeItem(`${KEY}:access_token`);
+    sessionStorage.removeItem(`${KEY}:refresh_token`);
+    persist();
+  };
+  migrateLegacy();
+  normalizeActive();
 
   const assertConfigured = () => {
     if (!configured) throw new Error(CONFIG_ERROR);
   };
 
-  const saveTokens = (data = {}) => {
-    if (data.access_token) {
-      token = data.access_token;
-      sessionStorage.setItem(`${KEY}:access_token`, token);
-    }
-    if (data.refresh_token) {
-      refreshToken = data.refresh_token;
-      sessionStorage.setItem(`${KEY}:refresh_token`, refreshToken);
-    }
+  const saveAccount = (identity, data = {}, { makeActive = true } = {}) => {
+    const previous = accountById(identity.id);
+    const next = {
+      ...(previous ?? {}),
+      ...identity,
+      accessToken: data.access_token ?? previous?.accessToken ?? null,
+      refreshToken: data.refresh_token ?? previous?.refreshToken ?? null,
+      idToken: data.id_token ?? previous?.idToken ?? null
+    };
+    accounts = accounts.filter((account) => account.id !== identity.id && account.id !== "legacy");
+    accounts.push(next);
+    if (makeActive) activeAccountId = next.id;
+    persist();
+    return next;
+  };
+
+  const removeAccount = (accountId) => {
+    accounts = accounts.filter((account) => account.id !== accountId);
+    if (activeAccountId === accountId) activeAccountId = accounts[0]?.id ?? null;
+    persist();
+  };
+
+  const renewAccount = async (accountId) => {
+    const account = accountById(accountId);
+    if (!configured || !account?.refreshToken) return false;
+    const data = await refreshPublicClientToken({
+      tokenUrl,
+      clientId: normalizedClientId,
+      refreshToken: account.refreshToken,
+      scopes: delegatedScopes
+    });
+    if (!data) return false;
+    saveAccount({ id: account.id, name: account.name, email: account.email, tenantId: account.tenantId }, data, { makeActive: false });
+    return Boolean(accountById(accountId)?.accessToken);
   };
 
   const restore = async () => {
     if (!configured) return null;
     const callback = await consumePkceCallback({ tokenUrl, clientId: normalizedClientId, storageKey: KEY });
-    if (callback) saveTokens(callback);
-    if (!token && refreshToken) {
+    if (callback) saveAccount(accountIdentityFromTokens(callback), callback);
+
+    normalizeActive();
+    const account = activeAccount();
+    if (account && !account.accessToken && account.refreshToken) {
       try {
-        saveTokens(await refreshPublicClientToken({ tokenUrl, clientId: normalizedClientId, refreshToken, scopes: delegatedScopes }));
+        await renewAccount(account.id);
       } catch {
-        refreshToken = null;
-        sessionStorage.removeItem(`${KEY}:refresh_token`);
+        removeAccount(account.id);
       }
     }
-    return token ? { accessToken: token, authMode: "delegated" } : null;
+    const current = activeAccount();
+    if (!current) return null;
+    return {
+      accessToken: current.accessToken ?? null,
+      authMode: "delegated",
+      account: publicAccount(current),
+      activeAccount: publicAccount(current),
+      accounts: accounts.map(publicAccount)
+    };
   };
 
   const login = () => {
@@ -68,61 +185,80 @@ export const createOutlookService = ({ clientId, tenant = "common", authMode = "
     });
   };
 
-  const logout = async () => {
-    token = null;
-    refreshToken = null;
-    sessionStorage.removeItem(`${KEY}:access_token`);
-    sessionStorage.removeItem(`${KEY}:refresh_token`);
+  const logout = async (accountId = activeAccountId) => {
+    if (accountId) removeAccount(accountId);
   };
 
-  const renew = async () => {
-    if (!configured || !refreshToken) return false;
-    const data = await refreshPublicClientToken({ tokenUrl, clientId: normalizedClientId, refreshToken, scopes: delegatedScopes });
-    saveTokens(data);
-    return Boolean(token);
+  const logoutAll = async () => {
+    accounts = [];
+    activeAccountId = null;
+    persist();
   };
 
-  const request = async (path, options = {}, retry = true) => {
+  const setActiveAccount = (accountId) => {
+    if (!accountById(accountId)) return false;
+    activeAccountId = accountId;
+    persist();
+    return true;
+  };
+
+  const requestForAccount = async (accountId, path, options = {}, retry = true) => {
     assertConfigured();
-    if (!token) throw new Error("Outlook non connecté");
-    const response = await fetch(`https://graph.microsoft.com/v1.0${path}`, {
+    const account = accountById(accountId);
+    if (!account) throw new Error("Compte Outlook non connecté");
+    if (!account.accessToken && account.refreshToken) await renewAccount(accountId);
+    const current = accountById(accountId);
+    if (!current?.accessToken) throw new Error("Compte Outlook non connecté");
+
+    const response = await fetch(`${GRAPH_BASE}${path}`, {
       ...options,
-      headers: { Accept: "application/json", Authorization: `Bearer ${token}`, ...(options.headers ?? {}) }
+      headers: { Accept: "application/json", Authorization: `Bearer ${current.accessToken}`, ...(options.headers ?? {}) }
     });
-    if (response.status === 401 && retry && refreshToken) {
+    if (response.status === 401 && retry && current.refreshToken) {
       try {
-        await renew();
+        await renewAccount(accountId);
       } catch (error) {
         if (!["invalid_grant", "interaction_required", "login_required"].includes(error.code)) throw error;
-        await logout();
-        throw new Error("Session Outlook expirée");
+        removeAccount(accountId);
+        throw new Error(`Session Outlook expirée pour ${current.email ?? current.name ?? "ce compte"}`);
       }
-      return request(path, options, false);
+      return requestForAccount(accountId, path, options, false);
     }
     if (response.status === 401) {
-      await logout();
-      throw new Error("Session Outlook expirée");
+      removeAccount(accountId);
+      throw new Error(`Session Outlook expirée pour ${current.email ?? current.name ?? "ce compte"}`);
     }
     if (response.status === 204) return null;
     const data = await response.json().catch(() => null);
     if (!response.ok) {
       const error = new Error(data?.error?.message ?? "Erreur Microsoft Graph");
       error.status = response.status;
+      error.accountId = accountId;
       throw error;
     }
     return data;
   };
 
-  const listCalendars = async () => {
+  const request = (path, options = {}, retry = true) => {
+    const account = activeAccount();
+    if (!account) throw new Error("Outlook non connecté");
+    return requestForAccount(account.id, path, options, retry);
+  };
+
+  const listCalendarsForAccount = async (account) => {
     const calendars = [];
     let path = "/me/calendars?$select=id,name,color,isDefaultCalendar,canEdit";
     const visited = new Set();
     while (path) {
       if (visited.has(path)) throw new Error("Pagination des agendas interrompue");
       visited.add(path);
-      const data = await request(path);
+      const data = await requestForAccount(account.id, path);
       calendars.push(...(data?.value ?? []).map((calendar) => ({
-        id: calendar.id,
+        id: encodeCalendarRef(account.id, calendar.id),
+        rawCalendarId: calendar.id,
+        accountId: account.id,
+        accountName: account.name ?? account.email ?? "Microsoft",
+        accountEmail: account.email ?? null,
         name: calendar.name ?? "Agenda",
         isDefault: Boolean(calendar.isDefaultCalendar),
         isDefaultCalendar: Boolean(calendar.isDefaultCalendar),
@@ -130,10 +266,28 @@ export const createOutlookService = ({ clientId, tenant = "common", authMode = "
         canEdit: calendar.canEdit !== false
       })));
       const next = data?.["@odata.nextLink"];
-      if (next && !next.startsWith("https://graph.microsoft.com/v1.0/")) throw new Error("Lien des agendas invalide");
-      path = next ? next.slice("https://graph.microsoft.com/v1.0".length) : null;
+      if (next && !next.startsWith(`${GRAPH_BASE}/`)) throw new Error("Lien des agendas invalide");
+      path = next ? next.slice(GRAPH_BASE.length) : null;
     }
     return calendars;
+  };
+
+  const listCalendars = async () => {
+    const connected = [...accounts];
+    const all = [];
+    const failures = [];
+    for (const account of connected) {
+      try {
+        all.push(...await listCalendarsForAccount(account));
+      } catch (error) {
+        failures.push(error);
+      }
+    }
+    if (!all.length && failures.length) throw failures[0];
+    if (connected.length > 1) {
+      return all.map((calendar) => ({ ...calendar, name: `${calendar.name} · ${calendar.accountEmail ?? calendar.accountName}` }));
+    }
+    return all;
   };
 
   const listEvents = async ({ from, to, calendarIds, calendarId: singleCalendarId = null, calendarName = null }) => {
@@ -143,56 +297,73 @@ export const createOutlookService = ({ clientId, tenant = "common", authMode = "
       "$orderby": "start/dateTime",
       "$select": "id,subject,start,end,isAllDay,location,webLink,categories,isOnlineMeeting,onlineMeeting,onlineMeetingProvider"
     });
+    const selectedIds = calendarIds === undefined
+      ? (singleCalendarId === null ? (await listCalendars()).map((calendar) => calendar.id) : [singleCalendarId])
+      : [...new Set(calendarIds)];
     const items = [];
-    for (const calendarId of calendarIds === undefined ? [singleCalendarId] : [...new Set(calendarIds)]) {
-      let path = calendarId === null ? `/me/calendarView?${params.toString()}` : `/me/calendars/${encodeURIComponent(calendarId)}/calendarView?${params.toString()}`;
+
+    for (const compoundId of selectedIds) {
+      const ref = decodeCalendarRef(compoundId, activeAccountId);
+      if (!ref.accountId || !ref.calendarId) continue;
+      let path = `/me/calendars/${encodeURIComponent(ref.calendarId)}/calendarView?${params.toString()}`;
       const visited = new Set();
       while (path) {
         if (visited.has(path)) throw new Error("Pagination Outlook interrompue");
         visited.add(path);
-        const data = await request(path, { headers: { Prefer: 'outlook.timezone="UTC"' } });
-        items.push(...(data?.value ?? []).map((event) => ({ ...event, calendarId })));
+        const data = await requestForAccount(ref.accountId, path, { headers: { Prefer: 'outlook.timezone="UTC"' } });
+        items.push(...(data?.value ?? []).map((event) => ({ ...event, accountId: ref.accountId, calendarId: compoundId })));
         const next = data?.["@odata.nextLink"];
-        if (next && !next.startsWith("https://graph.microsoft.com/v1.0/")) throw new Error("Lien de pagination Outlook invalide");
-        path = next ? next.slice("https://graph.microsoft.com/v1.0".length) : null;
+        if (next && !next.startsWith(`${GRAPH_BASE}/`)) throw new Error("Lien de pagination Outlook invalide");
+        path = next ? next.slice(GRAPH_BASE.length) : null;
       }
     }
+
     categoryError = null;
-    const categories = new Map();
-    if (items.some((event) => event.categories?.length)) {
+    const categoryColors = new Map();
+    const accountsWithCategories = [...new Set(items.filter((event) => event.categories?.length).map((event) => event.accountId))];
+    for (const accountId of accountsWithCategories) {
       let categoryPath = "/me/outlook/masterCategories?$select=displayName,color";
       const seen = new Set();
       try {
         while (categoryPath) {
           if (seen.has(categoryPath)) throw new Error("Pagination des catégories interrompue");
           seen.add(categoryPath);
-          const data = await request(categoryPath);
-          for (const category of data?.value ?? []) categories.set(category.displayName, category.color);
+          const data = await requestForAccount(accountId, categoryPath);
+          for (const category of data?.value ?? []) categoryColors.set(`${accountId}:${category.displayName}`, category.color);
           const next = data?.["@odata.nextLink"];
-          if (next && !next.startsWith("https://graph.microsoft.com/v1.0/")) throw new Error("Lien des catégories invalide");
-          categoryPath = next ? next.slice("https://graph.microsoft.com/v1.0".length) : null;
+          if (next && !next.startsWith(`${GRAPH_BASE}/`)) throw new Error("Lien des catégories invalide");
+          categoryPath = next ? next.slice(GRAPH_BASE.length) : null;
         }
       } catch (error) {
-        if (!token) throw error;
+        if (!accountById(accountId)) throw error;
         categoryError = error.status === 403 ? "permission" : "unavailable";
       }
     }
-    return items.map((event) => ({
-      id: event.id,
-      calendarId: event.calendarId ?? "default",
-      calendarName: calendarName ?? "Calendrier principal",
-      isOnlineMeeting: Boolean(event.isOnlineMeeting),
-      onlineMeetingProvider: event.onlineMeetingProvider ?? null,
-      onlineMeetingUrl: event.onlineMeeting?.joinUrl ?? null,
-      title: event.subject ?? "Événement",
-      start: event.start?.dateTime ? `${event.start.dateTime}${event.start.timeZone === "UTC" ? "Z" : ""}` : null,
-      end: event.end?.dateTime ? `${event.end.dateTime}${event.end.timeZone === "UTC" ? "Z" : ""}` : null,
-      allDay: Boolean(event.isAllDay),
-      location: event.location?.displayName ?? "",
-      webLink: event.webLink ?? null,
-      categories: (event.categories ?? []).filter((name) => typeof name === "string"),
-      categoryColors: (event.categories ?? []).filter((name) => categories.has(name)).map((name) => ({ name, color: categories.get(name) }))
-    })).filter((event) => event.start && event.end);
+
+    return items.map((event) => {
+      const account = accountById(event.accountId);
+      return {
+        id: event.id,
+        accountId: event.accountId,
+        accountName: account?.name ?? account?.email ?? "Microsoft",
+        accountEmail: account?.email ?? null,
+        calendarId: event.calendarId,
+        calendarName: calendarName ?? "Calendrier",
+        isOnlineMeeting: Boolean(event.isOnlineMeeting),
+        onlineMeetingProvider: event.onlineMeetingProvider ?? null,
+        onlineMeetingUrl: event.onlineMeeting?.joinUrl ?? null,
+        title: event.subject ?? "Événement",
+        start: event.start?.dateTime ? `${event.start.dateTime}${event.start.timeZone === "UTC" ? "Z" : ""}` : null,
+        end: event.end?.dateTime ? `${event.end.dateTime}${event.end.timeZone === "UTC" ? "Z" : ""}` : null,
+        allDay: Boolean(event.isAllDay),
+        location: event.location?.displayName ?? "",
+        webLink: event.webLink ?? null,
+        categories: (event.categories ?? []).filter((name) => typeof name === "string"),
+        categoryColors: (event.categories ?? [])
+          .filter((name) => categoryColors.has(`${event.accountId}:${name}`))
+          .map((name) => ({ name, color: categoryColors.get(`${event.accountId}:${name}`) }))
+      };
+    }).filter((event) => event.start && event.end);
   };
 
   const createEvent = async ({ title, start, end, body = "", showAs = "busy", categories = [] }) => {
@@ -241,12 +412,16 @@ export const createOutlookService = ({ clientId, tenant = "common", authMode = "
   return {
     login,
     logout,
+    logoutAll,
     restore,
     listEvents,
     listCalendars,
     createFocusBlock,
     createPlanningBlocks,
-    isConnected: () => Boolean(token),
+    setActiveAccount,
+    getAccounts: () => accounts.map(publicAccount),
+    getActiveAccount: () => publicAccount(activeAccount()),
+    isConnected: () => accounts.some((account) => Boolean(account.accessToken || account.refreshToken)),
     isConfigured: () => configured,
     getCategoryError: () => categoryError,
     getAuthInfo: () => ({
@@ -256,7 +431,8 @@ export const createOutlookService = ({ clientId, tenant = "common", authMode = "
       authorizeUrl,
       tokenUrl,
       usesClientSecret: false,
-      graphSubject: "/me"
+      graphSubject: "/me",
+      multipleAccounts: true
     })
   };
 };
