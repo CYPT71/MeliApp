@@ -30,7 +30,7 @@ Le produit contient notamment :
 
 | Catégorie | Route | Contenu principal |
 |---|---|---|
-| Agenda | `#/calendar` | Outlook, synchronisation, événements |
+| Agenda | `#/calendar` | calendrier horaire Outlook : journée, 3 jours ou semaine |
 | Tâches | `#/tasks` | liste, matrice Eisenhower, projets, découpage |
 | Mindmap | `#/mindmap` | carte de tous les projets, tâches et sous-tâches |
 | Journée | `#/day` | Flow / focus de la journée |
@@ -131,6 +131,8 @@ Outlook n’est pas une identité utilisateur MeliApp. Il sert uniquement de **s
 Le service Microsoft utilise Authorization Code + PKCE en client public avec `Calendars.ReadWrite`.
 
 Le `microsoftClientId` est une configuration de déploiement de MeliApp, jamais quelque chose que l’utilisateur doit saisir dans l’interface.
+
+L’agenda propose les vues Journée, 3 jours et Semaine (du lundi au dimanche), une navigation par période et un sélecteur de date. Les rendez-vous sont affichés aux heures locales du navigateur, avec une zone pour les événements sur toute la journée. Les rendez-vous simultanés sont placés côte à côte ; cliquer sur un événement affiche ses détails.
 
 ## Spotify
 

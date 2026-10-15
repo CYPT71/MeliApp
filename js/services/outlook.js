@@ -135,10 +135,19 @@ export const createOutlookService = ({ clientId, tenant = "common", authMode = "
       "$orderby": "start/dateTime",
       "$select": "id,subject,start,end,isAllDay,location,webLink"
     });
-    const data = await request(`/me/calendarView?${params.toString()}`, {
-      headers: { Prefer: 'outlook.timezone="UTC"' }
-    });
-    return (data?.value ?? []).map((event) => ({
+    const items = [];
+    let path = `/me/calendarView?${params.toString()}`;
+    const visited = new Set();
+    while (path) {
+      if (visited.has(path)) throw new Error("Pagination Outlook interrompue");
+      visited.add(path);
+      const data = await request(path, { headers: { Prefer: 'outlook.timezone="UTC"' } });
+      items.push(...(data?.value ?? []));
+      const next = data?.["@odata.nextLink"];
+      if (next && !next.startsWith("https://graph.microsoft.com/v1.0/")) throw new Error("Lien de pagination Outlook invalide");
+      path = next ? next.slice("https://graph.microsoft.com/v1.0".length) : null;
+    }
+    return items.map((event) => ({
       id: event.id,
       title: event.subject ?? "Événement",
       start: event.start?.dateTime ? `${event.start.dateTime}${event.start.timeZone === "UTC" ? "Z" : ""}` : null,

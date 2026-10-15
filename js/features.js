@@ -1,3 +1,5 @@
+import { calendarViewFeature } from "./features-calendar.js";
+import { calendarRange } from "./domain/calendar.js";
 import { computePriorityScore } from "./domain/scoring.js";
 import { splitTask } from "./domain/scheduling.js";
 import { xpForTask, levelFromXp } from "./domain/xp.js";
@@ -174,16 +176,20 @@ export const features = {
     }
   },
 
+  calendarView: calendarViewFeature,
+
   outlookSync: {
     description: "Synchronisation Outlook",
     state: { syncing: false, lastSyncAt: null, error: null },
-    when: ["app:start", "app:resume", "sync:manual", "auth:microsoft:connected"],
+    when: ["app:start", "app:resume", "sync:manual", "auth:microsoft:connected", ...calendarViewFeature.when],
     run: async ({ state, services }) => {
       if (!services.outlook?.isConnected?.()) return state;
       try {
         const now = Date.now();
-        const from = new Date(now - 24 * 60 * 60 * 1000).toISOString();
-        const to = new Date(now + 14 * 24 * 60 * 60 * 1000).toISOString();
+        const range = calendarRange(state.features?.calendarView);
+        const nearToday = +range.end >= now - 86400000 && +range.start <= now + 14 * 86400000;
+        const from = new Date(nearToday ? Math.min(+range.start, now - 86400000) : +range.start).toISOString();
+        const to = new Date(nearToday ? Math.max(+range.end, now + 14 * 86400000) : +range.end).toISOString();
         const events = await services.outlook.listEvents({ from, to });
         const syncedAt = new Date().toISOString();
         return {
@@ -203,27 +209,6 @@ export const features = {
           auth: { ...next.auth, microsoft: null }
         };
       }
-    }
-  },
-
-  calendarView: {
-    description: "Agenda",
-    page: { path: "agenda", title: "Agenda", icon: "🗓️", order: 20 },
-    ui: {
-      render: ({ state }) => {
-        const events = state.calendar?.events ?? [];
-        const list = el("div", { className: "stack" });
-        list.append(button("Synchroniser", "calendar.sync", { className: "primary" }));
-        if (!events.length) list.append(el("p", { className: "muted", text: "Aucun événement en cache." }));
-        for (const event of events) {
-          list.append(el("article", { className: "list-item" }, [
-            el("strong", { text: event.title ?? event.subject ?? "Événement" }),
-            el("span", { className: "muted", text: `${formatDateTime(event.start)} → ${formatDateTime(event.end)}` })
-          ]));
-        }
-        return list;
-      },
-      actions: { "calendar.sync": ({ dispatch }) => dispatch("sync:manual") }
     }
   },
 

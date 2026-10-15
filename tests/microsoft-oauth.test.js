@@ -72,3 +72,26 @@ for (const scenario of ["refresh rejected", "refreshed token rejected", "tempora
     }
   });
 }
+
+test("Outlook calendar follows pagination so busy days contain every event", async () => {
+  const previousStorage = globalThis.sessionStorage;
+  const previousFetch = globalThis.fetch;
+  globalThis.sessionStorage = memoryStorage();
+  sessionStorage.setItem("meliapp:microsoft:access_token", "test-access");
+  const calls = [];
+  globalThis.fetch = async (url) => {
+    calls.push(String(url));
+    const value = [{ id: String(calls.length), subject: "Rendez-vous", start: { dateTime: "2026-10-15T09:00:00", timeZone: "UTC" }, end: { dateTime: "2026-10-15T10:00:00", timeZone: "UTC" } }];
+    return new Response(JSON.stringify({ value, ...(calls.length === 1 ? { "@odata.nextLink": "https://graph.microsoft.com/v1.0/me/calendarView?$skip=1" } : {}) }));
+  };
+  try {
+    const service = createOutlookService({ clientId: "test-client" });
+    const events = await service.listEvents({ from: "2026-10-15", to: "2026-10-16" });
+    assert.equal(events.length, 2);
+    assert.equal(calls.length, 2);
+    assert.match(calls[1], /\$skip=1/);
+  } finally {
+    globalThis.sessionStorage = previousStorage;
+    globalThis.fetch = previousFetch;
+  }
+});

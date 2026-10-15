@@ -8,7 +8,7 @@ test("production registry exposes the expected grouped navigation", () => {
   const pages = featurePages(features);
   const byPath = Object.fromEntries(pages.map((entry) => [entry.page.path, entry]));
 
-  assert.deepEqual(byPath.calendar.names, ["microsoftAuth", "outlookSync", "calendarView", "manualSync"]);
+  assert.deepEqual(byPath.calendar.names, ["microsoftAuth", "calendarView", "outlookSync", "manualSync"]);
   assert.ok(byPath.tasks.names.includes("taskWorkspace"));
   assert.ok(byPath.tasks.names.includes("tasks"));
   assert.deepEqual(byPath.mindmap.names, ["taskMindmap"]);
