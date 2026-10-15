@@ -446,3 +446,10 @@
   .task-card,
   .importance-choice { transition: none; }
 }
+
+.outlook-category-tag { display: inline-block; align-self: flex-start; padding: .2rem .5rem; border-radius: .4rem; font-size: .75rem; overflow-wrap: anywhere; background: #ffffff14; }
+.outlook-category-tag.has-category { background: var(--category-color); color: var(--category-ink); }
+.task-card.has-outlook-category, .matrix-task.has-outlook-category, .mindmap-node.has-outlook-category, .project-task-row.has-outlook-category, .project-outlook-event.has-outlook-category { border-left: 4px solid var(--category-color); }
+.task-card.has-outlook-category, .matrix-task.has-outlook-category { background: color-mix(in srgb, var(--category-color) 12%, #1c2029); }
+
+.adaptive-plan-block.has-outlook-category { border-left: 4px solid var(--category-color); }

@@ -1,3 +1,4 @@
+import { outlookTaskMetadata, linkedProjects } from "./domain/project-outlook.js";
 import { features as baseFeatures } from "./features.js";
 
 const featureState = (state, name, fallback = {}) => state.features?.[name] ?? fallback;
@@ -49,6 +50,7 @@ export const calendarEventToTask = (event) => {
     preferredEnergyMin: 2,
     status: "active",
     source: "outlook",
+    ...outlookTaskMetadata(event),
     sourceEventId: event?.id ?? null,
     sourceWebLink: event?.webLink ?? null,
     sourceLocation: event?.location ?? "",
@@ -72,11 +74,13 @@ export const calendarTaskFeatures = {
         ...context,
         renderEventActions: (event) => {
           const imported = isImported(context.state, event);
-          return button(imported ? "Ajoutée aux tâches" : "Ajouter aux tâches", "calendar.import-task", {
+          return node("div", { className: "stack compact" }, [
+            ...linkedProjects(context.state, event).map((project) => node("span", { className: "task-chip", text: `Projet · ${project.title}` })),
+            button(imported ? "Ajoutée aux tâches" : "Ajouter aux tâches", "calendar.import-task", {
             className: imported ? "secondary" : "primary",
             "data-event-id": event.id,
             disabled: imported ? true : null
-          });
+          })]);
         }
       }),
       actions: {

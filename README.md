@@ -226,3 +226,11 @@ Ne jamais commiter :
 - clé privée.
 
 GitHub Pages est un client public. Les intégrations doivent rester compatibles avec ce modèle.
+
+## Projets et catégories Outlook
+
+Dans le formulaire d’un projet, coche les **Catégories Outlook associées**. Les catégories sont chargées à la synchronisation, avec leurs couleurs. Les événements synchronisés portant ces catégories apparaissent dans le projet, et leurs tâches importées sont reliées automatiquement dans les listes, les filtres, la progression du projet et la Mindmap. Un événement peut correspondre à plusieurs projets. Les tags libres restent indépendants de ces catégories.
+
+Ces associations ne modifient pas Outlook et ne créent pas de tâches : l’import reste explicite. Retirer une association ne supprime aucun événement ni aucune tâche. Les rattachements manuels des tâches sont conservés.
+
+Une tâche importée reprend les noms et couleurs de catégories Outlook, visibles dans les vues de tâches et le planning. Une nouvelle synchronisation actualise ces métadonnées, y compris pour les anciennes tâches importées, sans écraser le titre modifié, la progression ou le rattachement manuel. Les événements visibles dans les projets sont ceux actuellement chargés depuis les agendas sélectionnés.

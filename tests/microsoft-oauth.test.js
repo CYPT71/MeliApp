@@ -148,3 +148,15 @@ test("Outlook lists calendars across pages and requests only selected calendar I
     assert.equal(paths.length, count);
   } finally { globalThis.sessionStorage = previousStorage; globalThis.fetch = previousFetch; }
 });
+
+test("Outlook categories can be selected even without categorized events in the visible period", async () => {
+  const previousStorage = globalThis.sessionStorage, previousFetch = globalThis.fetch;
+  globalThis.sessionStorage = memoryStorage();
+  sessionStorage.setItem("meliapp:microsoft:access_token", "test-access");
+  globalThis.fetch = async () => new Response(JSON.stringify({ value: [{ displayName: "Futurs examens", color: "preset8" }] }));
+  try {
+    const service = createOutlookService({ clientId: "test-client" });
+    await service.listCategories();
+    assert.deepEqual(service.getCategories(), [{ name: "Futurs examens", color: "preset8" }]);
+  } finally { globalThis.sessionStorage = previousStorage; globalThis.fetch = previousFetch; }
+});

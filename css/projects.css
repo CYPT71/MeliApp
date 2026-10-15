@@ -177,3 +177,12 @@
     grid-column: 2;
   }
 }
+
+.project-outlook-picker { border: 1px solid #ffffff26; border-radius: .8rem; padding: .7rem; }
+.project-outlook-picker legend { font-weight: 700; }
+.project-outlook-choice { display: inline-flex; align-items: center; gap: .5rem; min-height: 44px; margin-right: .8rem; cursor: pointer; }
+.project-outlook-choice input { width: 20px; height: 20px; accent-color: #8fc7ff; }
+.project-outlook-events { max-height: 340px; overflow-y: auto; padding: .5rem 0; }
+.project-outlook-event { display: grid; gap: .35rem; padding: .7rem; background: #ffffff05; border-radius: .5rem; }
+.project-outlook-event button { justify-self: start; }
+.project-task-row.has-outlook-category { padding-left: .5rem; }

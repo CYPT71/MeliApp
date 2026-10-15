@@ -144,6 +144,8 @@ export const buildAdaptiveDayPlan = ({
         end: workEnd,
         title: picked.task.title,
         taskId: picked.task.id,
+        categories: [...(picked.task.categories ?? [])],
+        categoryColors: (picked.task.categoryColors ?? []).map((category) => ({ ...category })),
         context: picked.context,
         deadline: picked.task.deadline ?? null,
         reason

@@ -26,6 +26,8 @@ export const createOutlookService = ({ clientId, tenant = "common", authMode = "
   let refreshToken = sessionStorage.getItem(`${KEY}:refresh_token`);
 
   let categoryError = null;
+  let categoryDefinitions = null;
+  let categoriesFetched = false;
 
   const assertConfigured = () => {
     if (!configured) throw new Error(CONFIG_ERROR);
@@ -153,6 +155,30 @@ export const createOutlookService = ({ clientId, tenant = "common", authMode = "
     return calendars;
   };
 
+  const listCategories = async () => {
+    if (categoriesFetched) return categoryDefinitions ?? [];
+    categoriesFetched = true;
+    const categories = new Map();
+    let categoryPath = "/me/outlook/masterCategories?$select=displayName,color";
+    const seen = new Set();
+    try {
+      while (categoryPath) {
+        if (seen.has(categoryPath)) throw new Error("Pagination des catégories interrompue");
+        seen.add(categoryPath);
+        const data = await request(categoryPath);
+        for (const category of data?.value ?? []) categories.set(category.displayName, category.color);
+        const next = data?.["@odata.nextLink"];
+        if (next && !next.startsWith("https://graph.microsoft.com/v1.0/")) throw new Error("Lien des catégories invalide");
+        categoryPath = next ? next.slice("https://graph.microsoft.com/v1.0".length) : null;
+      }
+      categoryDefinitions = [...categories].filter(([name]) => typeof name === "string").map(([name, color]) => ({ name, color }));
+    } catch (error) {
+      if (!token) throw error;
+      categoryError = error.status === 403 ? "permission" : "unavailable";
+    }
+    return categoryDefinitions ?? [];
+  };
+
   const listEvents = async ({ from, to, calendarIds, calendarId: singleCalendarId = null, calendarName = null }) => {
     const params = new URLSearchParams({
       startDateTime: from,
@@ -175,25 +201,9 @@ export const createOutlookService = ({ clientId, tenant = "common", authMode = "
       }
     }
     categoryError = null;
-    const categories = new Map();
-    if (items.some((event) => event.categories?.length)) {
-      let categoryPath = "/me/outlook/masterCategories?$select=displayName,color";
-      const seen = new Set();
-      try {
-        while (categoryPath) {
-          if (seen.has(categoryPath)) throw new Error("Pagination des catégories interrompue");
-          seen.add(categoryPath);
-          const data = await request(categoryPath);
-          for (const category of data?.value ?? []) categories.set(category.displayName, category.color);
-          const next = data?.["@odata.nextLink"];
-          if (next && !next.startsWith("https://graph.microsoft.com/v1.0/")) throw new Error("Lien des catégories invalide");
-          categoryPath = next ? next.slice("https://graph.microsoft.com/v1.0".length) : null;
-        }
-      } catch (error) {
-        if (!token) throw error;
-        categoryError = error.status === 403 ? "permission" : "unavailable";
-      }
-    }
+    categoriesFetched = false;
+    const definitions = items.some((event) => event.categories?.length) ? await listCategories() : [];
+    const categories = new Map(definitions.map((category) => [category.name, category.color]));
     return items.map((event) => ({
       id: event.id,
       calendarId: event.calendarId ?? "default",
@@ -234,10 +244,12 @@ export const createOutlookService = ({ clientId, tenant = "common", authMode = "
     restore,
     listEvents,
     listCalendars,
+    listCategories,
     createFocusBlock,
     isConnected: () => Boolean(token),
     isConfigured: () => configured,
     getCategoryError: () => categoryError,
+    getCategories: () => categoryDefinitions?.map((category) => ({ ...category })) ?? null,
     getAuthInfo: () => ({
       mode: "delegated",
       tenant: normalizedTenant,

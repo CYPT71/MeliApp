@@ -1,3 +1,4 @@
+import { refreshImportedTaskMetadata } from "./domain/project-outlook.js";
 import { calendarViewFeature } from "./features-calendar.js";
 import { calendarRange } from "./domain/calendar.js";
 import { computePriorityScore } from "./domain/scoring.js";
@@ -206,13 +207,16 @@ export const features = {
         const selected = state.features?.calendarView?.selectedCalendarIds;
         const calendarIds = calendars?.filter((calendar) => !Array.isArray(selected) || selected.includes(calendar.id)).map((calendar) => calendar.id);
         const events = await services.outlook.listEvents({ from, to, ...(calendarIds ? { calendarIds } : {}) });
+        await services.outlook.listCategories?.();
         const calendarNames = new Map((calendars ?? []).map((calendar) => [calendar.id, calendar.name]));
-        const next = calendars ? setFeatureState(state, "calendarView", (current) => ({ ...current, calendars })) : state;
+        const namedEvents = events.map((event) => ({ ...event, calendarName: calendarNames.get(event.calendarId) ?? event.calendarName ?? null }));
+        const refreshed = refreshImportedTaskMetadata(state, namedEvents);
+        const next = calendars ? setFeatureState(refreshed, "calendarView", (current) => ({ ...current, calendars })) : refreshed;
         const syncedAt = new Date().toISOString();
         return {
           ...setFeatureState(next, "outlookSync", { syncing: false, lastSyncAt: syncedAt, error: null, categoryError: services.outlook.getCategoryError?.() ?? null }),
           auth: { ...state.auth, microsoft: { ...(state.auth?.microsoft ?? {}), connected: true } },
-          calendar: { calendars: calendars ?? state.calendar?.calendars ?? [], events: events.map((event) => ({ ...event, calendarName: calendarNames.get(event.calendarId) ?? event.calendarName ?? null })), lastSyncAt: syncedAt }
+          calendar: { categories: services.outlook.getCategories?.() ?? state.calendar?.categories ?? [], calendars: calendars ?? state.calendar?.calendars ?? [], events: namedEvents, lastSyncAt: syncedAt }
         };
       } catch (error) {
         const next = setFeatureState(state, "outlookSync", (current) => ({

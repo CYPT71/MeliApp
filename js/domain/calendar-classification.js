@@ -1,3 +1,4 @@
+import { outlookTaskMetadata } from "./project-outlook.js";
 const TASK = "tasks";
 const APPOINTMENT = "appointments";
 const BOTH = "both";
@@ -54,6 +55,7 @@ export const calendarEventToPlanningTask = (event = {}) => {
     preferredEnergyMin: 2,
     status: "active",
     source: "calendar-auto",
+    ...outlookTaskMetadata(event),
     sourceEventId: event.id ?? null,
     sourceCalendarId: event.calendarId ?? null,
     sourceTitle: event.calendarName ?? null

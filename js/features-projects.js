@@ -1,3 +1,6 @@
+import { dateKey } from "./domain/calendar.js";
+import { linkedProjects, matchesProjectCategories } from "./domain/project-outlook.js";
+import { categoryPresentation } from "./domain/outlook-categories.js";
 import { taskWorkspaceFeatures } from "./features-tasks-workspace.js";
 
 const featureState = (state, name, fallback = {}) => state.features?.[name] ?? fallback;
@@ -71,6 +74,7 @@ const normalizeProject = (payload = {}, previous = {}) => ({
     .map((tag) => tag.trim())
     .filter(Boolean)
     .slice(0, 12),
+  outlookCategories: [...new Set(payload.outlookCategories ?? previous.outlookCategories ?? [])].filter((name) => typeof name === "string" && name.trim()),
   startDate: payload.startDate || previous.startDate || null,
   deadline: payload.deadline || previous.deadline || null,
   status: ["planned", "active", "on_hold", "completed"].includes(payload.status) ? payload.status : (previous.status ?? "active"),
@@ -83,7 +87,7 @@ const normalizeProject = (payload = {}, previous = {}) => ({
 });
 
 const projectStats = (state, projectId) => {
-  const tasks = taskItems(state).filter((task) => task.projectId === projectId && !task.parentTaskId);
+  const tasks = taskItems(state).filter((task) => linkedProjects(state, task).some((project) => project.id === projectId) && !task.parentTaskId);
   const completed = tasks.filter((task) => task.status === "completed").length;
   const progress = tasks.length
     ? tasks.reduce((sum, task) => sum + Number(task.progress ?? (task.status === "completed" ? 1 : 0)), 0) / tasks.length
@@ -99,7 +103,29 @@ const dateLabel = (value) => {
   return new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "short", year: "numeric" }).format(date);
 };
 
-const projectForm = (project = null) => {
+const projectCategoryPicker = (state, project) => {
+  const definitions = new Map((state.calendar?.categories ?? []).map((category) => [category.name, category]));
+  for (const event of state.calendar?.events ?? []) {
+    for (const name of event.categories ?? []) if (!definitions.has(name)) definitions.set(name, { name });
+    for (const category of event.categoryColors ?? []) definitions.set(category.name, category);
+  }
+  for (const name of project?.outlookCategories ?? []) if (!definitions.has(name)) definitions.set(name, { name });
+  const root = el("fieldset", { className: "project-outlook-picker" }, [
+    el("legend", { text: "Catégories Outlook associées" }),
+    el("p", { className: "muted", text: "Les événements et tâches importées portant ces catégories apparaîtront dans ce projet. Cela ne modifie pas Outlook." })
+  ]);
+  if (!definitions.size) root.append(el("p", { className: "muted", text: "Synchronise un agenda contenant des catégories Outlook pour les retrouver ici." }));
+  for (const category of [...definitions.values()].sort((a, b) => a.name.localeCompare(b.name, "fr"))) {
+    const presentation = categoryPresentation({ categories: [category.name], categoryColors: [category] });
+    root.append(el("label", { className: "project-outlook-choice" }, [
+      el("input", { type: "checkbox", name: "outlookCategories", value: category.name, checked: project?.outlookCategories?.includes(category.name) }),
+      el("span", { className: `outlook-category-tag${presentation.style ? " has-category" : ""}`, style: presentation.style, text: category.name })
+    ]));
+  }
+  return root;
+};
+
+const projectForm = (state, project = null) => {
   const editing = Boolean(project);
   return el("form", { className: "project-form stack", "data-project-id": project?.id ?? "" }, [
     el("div", { className: "project-form-heading" }, [
@@ -129,6 +155,7 @@ const projectForm = (project = null) => {
       textareaField({ label: "Notes", name: "notes", value: project?.notes ?? "", placeholder: "Contexte, liens, contraintes, idées…" }),
       field({ label: "Tags séparés par des virgules", name: "tags", value: (project?.tags ?? []).join(", "), placeholder: "études, perso, urgent" })
     ]),
+    projectCategoryPicker(state, project),
     button(editing ? "Enregistrer les modifications" : "Créer le projet", editing ? "projects.update" : "projects.create", {
       className: "primary",
       "data-id": project?.id ?? ""
@@ -138,7 +165,7 @@ const projectForm = (project = null) => {
 
 const projectCard = (state, project) => {
   const stats = projectStats(state, project.id);
-  const taskList = taskItems(state).filter((task) => task.projectId === project.id && !task.parentTaskId);
+  const taskList = taskItems(state).filter((task) => linkedProjects(state, task).some((linked) => linked.id === project.id) && !task.parentTaskId);
   const root = el("article", { className: "project-card", style: `--project-accent:${project.color || "#7c6cff"}` }, [
     el("div", { className: "project-card-head" }, [
       el("div", { className: "stack compact" }, [
@@ -160,6 +187,7 @@ const projectCard = (state, project) => {
       el("span", { text: stats.estimated ? `${stats.estimated} min planifiées` : "Charge non planifiée" }),
       el("span", { text: project.estimateMinutes ? `${project.estimateMinutes} min prévues` : "Estimation projet libre" })
     ]),
+    project.outlookCategories?.length ? el("div", { className: "project-tags", "aria-label": "Catégories Outlook liées" }, project.outlookCategories.map((name) => el("span", { className: "task-chip", text: `Outlook · ${name}` }))) : null,
     project.tags?.length ? el("div", { className: "project-tags" }, project.tags.map((tag) => el("span", { className: "task-chip", text: tag }))) : null,
     el("div", { className: "project-actions" }, [
       button("Modifier", "projects.edit-open", { "data-id": project.id }),
@@ -174,13 +202,27 @@ const projectCard = (state, project) => {
   if (taskList.length) {
     const list = el("div", { className: "project-task-list stack compact" }, [el("strong", { text: "Tâches liées" })]);
     for (const task of taskList.slice(0, 8)) {
-      list.append(el("div", { className: "project-task-row" }, [
+      list.append(el("div", { className: `project-task-row${categoryPresentation(task).style ? " has-outlook-category" : ""}`, style: categoryPresentation(task).style }, [
         el("span", { text: task.status === "completed" ? "✓" : "○" }),
         el("span", { text: task.title }),
         el("small", { className: "muted", text: task.deadline ? dateLabel(task.deadline) : "" })
       ]));
     }
     root.append(list);
+  }
+  const events = (state.calendar?.events ?? []).filter((event) => matchesProjectCategories(project, event));
+  if (events.length) {
+    const section = el("section", { className: "project-outlook-events stack compact" }, [el("strong", { text: `Agenda Outlook associé (${events.length})` })]);
+    for (const event of [...events].sort((a, b) => new Date(a.start) - new Date(b.start))) {
+      const presentation = categoryPresentation(event);
+      section.append(el("div", { className: `project-outlook-event${presentation.style ? " has-outlook-category" : ""}`, style: presentation.style }, [
+        el("strong", { text: event.title }),
+        el("small", { className: "muted", text: new Intl.DateTimeFormat("fr-FR", { dateStyle: "short", timeStyle: "short" }).format(new Date(event.start)) }),
+        el("span", { className: `outlook-category-tag${presentation.style ? " has-category" : ""}`, text: presentation.label }),
+        button("Voir dans l’agenda", "projects.open-event", { "data-date": dateKey(new Date(event.start)) })
+      ]));
+    }
+    root.append(section);
   }
   return root;
 };
@@ -192,6 +234,7 @@ const readProjectPayload = (target) => ({
   successCriteria: formValue(target, "successCriteria"),
   notes: formValue(target, "notes"),
   tags: formValue(target, "tags"),
+  outlookCategories: [...(target.closest("form")?.querySelectorAll('input[name="outlookCategories"]:checked') ?? [])].map((input) => input.value),
   startDate: formValue(target, "startDate") || null,
   deadline: formValue(target, "deadline") || null,
   status: formValue(target, "status"),
@@ -215,7 +258,7 @@ const projectRender = ({ state }) => {
     ])
   ]);
 
-  root.append(projectForm(editing));
+  root.append(projectForm(state, editing));
 
   const toolbar = el("div", { className: "project-toolbar" }, [
     el("input", { type: "search", placeholder: "Rechercher un projet…", value: current.query ?? "", "data-action": "projects.filter-query" }),
@@ -296,6 +339,10 @@ export const projectFeatures = {
       order: 1,
       render: projectRender,
       actions: {
+        "projects.open-event": async ({ target, dispatch }) => {
+          await dispatch("calendar:open-day", { date: target.dataset.date });
+          location.hash = "#/calendar";
+        },
         "projects.create": ({ target, dispatch }) => dispatch("project:create", readProjectPayload(target)),
         "projects.update": ({ target, dispatch }) => dispatch("project:update", { id: target.dataset.id, ...readProjectPayload(target) }),
         "projects.delete": ({ target, dispatch }) => dispatch("project:delete", { id: target.dataset.id }),

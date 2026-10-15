@@ -1,3 +1,5 @@
+import { categoryPresentation } from "./domain/outlook-categories.js";
+import { linkedProjects } from "./domain/project-outlook.js";
 import { features as baseFeatures } from "./features.js";
 import { advancedFeatures } from "./features-advanced.js";
 import { addXp } from "./domain/xp.js";
@@ -101,7 +103,7 @@ const selectProject = (state, selected = "") => {
 const compactTaskMeta = (state, task) => {
   const quadrant = eisenhowerQuadrant(task);
   const deadline = deadlineState(task);
-  const project = projectName(state, task.projectId);
+  const project = linkedProjects(state, task).map((item) => item.title).join(" · ");
   const wrap = el("div", { className: "task-chips" });
   wrap.append(
     el("span", { className: `task-chip quadrant-${quadrant.id}`, text: `${quadrant.icon} ${quadrant.title}` }),
@@ -109,6 +111,8 @@ const compactTaskMeta = (state, task) => {
     el("span", { className: "task-chip", text: `${task.estimateMinutes ?? 25} min` }),
     el("span", { className: "task-chip", text: `Imp. ${normalizeImportance(task.importance)}` })
   );
+  const category = categoryPresentation(task);
+  if (category.label) wrap.append(el("span", { className: `outlook-category-tag${category.style ? " has-category" : ""}`, style: category.style, text: category.label }));
   if (project) wrap.append(el("span", { className: "task-chip", text: project }));
   return wrap;
 };
@@ -143,7 +147,8 @@ const taskCard = (state, task, { compact = false } = {}) => {
   const editing = workspace.editingId === task.id;
   const expanded = workspace.expandedId === task.id || editing || split.manualFor === task.id;
 
-  const card = el("article", { className: `task-card${compact ? " is-compact" : ""}`, "data-task-id": task.id });
+  const category = categoryPresentation(task);
+  const card = el("article", { className: `task-card${compact ? " is-compact" : ""}${category.style ? " has-outlook-category" : ""}`, style: category.style, "data-task-id": task.id });
   const complete = button("", "tasks.complete", {
     className: "task-check",
     "data-id": task.id,
@@ -291,8 +296,8 @@ const filteredParents = (state) => {
     if (task.parentTaskId) return false;
     if (status === "active" && task.status === "completed") return false;
     if (status === "completed" && task.status !== "completed") return false;
-    if (projectId === "none" && task.projectId) return false;
-    if (projectId !== "all" && projectId !== "none" && task.projectId !== projectId) return false;
+    if (projectId === "none" && linkedProjects(state, task).length) return false;
+    if (projectId !== "all" && projectId !== "none" && !linkedProjects(state, task).some((project) => project.id === projectId)) return false;
     if (query && !String(task.title ?? "").toLocaleLowerCase("fr").includes(query)) return false;
     return true;
   }));
@@ -330,13 +335,14 @@ const listRender = (state) => {
   return root;
 };
 
-const matrixTask = (state, task) => el("article", { className: "matrix-task" }, [
+const matrixTask = (state, task) => el("article", { className: `matrix-task${categoryPresentation(task).style ? " has-outlook-category" : ""}`, style: categoryPresentation(task).style }, [
   el("div", { className: "matrix-task__top" }, [
     el("strong", { text: task.title }),
     button("✓", "tasks.complete", { className: "matrix-task__done", "data-id": task.id, "aria-label": `Terminer ${task.title}` })
   ]),
   el("small", { className: "muted", text: `${formatDeadline(task.deadline, true)} · imp. ${normalizeImportance(task.importance)}` }),
-  projectName(state, task.projectId) ? el("small", { className: "muted", text: projectName(state, task.projectId) }) : null
+  linkedProjects(state, task).length ? el("small", { className: "muted", text: linkedProjects(state, task).map((project) => project.title).join(" · ") }) : null,
+  categoryPresentation(task).label ? el("span", { className: `outlook-category-tag${categoryPresentation(task).style ? " has-category" : ""}`, style: categoryPresentation(task).style, text: categoryPresentation(task).label }) : null
 ]);
 
 const matrixBoard = (state) => {
@@ -368,7 +374,7 @@ const treeTask = (state, task) => {
   const quadrant = eisenhowerQuadrant(task);
   const children = taskItems(state).filter((item) => item.parentTaskId === task.id);
   const item = el("li", { className: "mindmap-task" }, [
-    el("article", { className: "mindmap-node" }, [
+    el("article", { className: `mindmap-node${categoryPresentation(task).style ? " has-outlook-category" : ""}`, style: categoryPresentation(task).style }, [
       el("strong", { text: task.title }),
       el("span", { className: `task-chip quadrant-${quadrant.id}`, text: `${quadrant.icon} ${quadrant.title}` }),
       el("small", { className: "muted", text: `Imp. ${normalizeImportance(task.importance)} · ${task.estimateMinutes ?? 25} min · ${formatDeadline(task.deadline, true)}` })
@@ -388,10 +394,10 @@ const mindmapRender = (state) => {
   ]);
   const all = taskItems(state);
   const projectList = projectItems(state);
-  const unassigned = all.filter((task) => !task.projectId && !task.parentTaskId);
+  const unassigned = all.filter((task) => !linkedProjects(state, task).length && !task.parentTaskId);
 
   for (const project of projectList) {
-    const roots = all.filter((task) => task.projectId === project.id && !task.parentTaskId);
+    const roots = all.filter((task) => linkedProjects(state, task).some((linked) => linked.id === project.id) && !task.parentTaskId);
     const section = el("section", { className: "mindmap-project" }, [
       el("div", { className: "mindmap-project__root" }, [
         el("strong", { text: project.title }),

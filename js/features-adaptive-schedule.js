@@ -1,3 +1,4 @@
+import { categoryPresentation } from "./domain/outlook-categories.js";
 import { buildAdaptiveDayPlan, taskContext } from "./domain/adaptive-planning.js";
 import { calendarEventToPlanningTask, splitCalendarEvents } from "./domain/calendar-classification.js";
 
@@ -73,12 +74,14 @@ const blockIcon = (block) => block.type === "event" ? "🗓️" : block.type ===
 const blockRow = (block) => {
   const meta = [`${formatTime(block.startIso)}–${formatTime(block.endIso)}`, `${block.minutes} min`];
   if (block.deadline) meta.push(`deadline ${formatDeadline(block.deadline)}`);
-  return node("article", { className: "list-item stack compact adaptive-plan-block" }, [
+  const category = categoryPresentation(block);
+  return node("article", { className: `list-item stack compact adaptive-plan-block${category.style ? " has-outlook-category" : ""}`, style: category.style }, [
     node("div", { className: "row row--between" }, [
       node("strong", { text: `${blockIcon(block)} ${block.title}` }),
       node("span", { className: "task-count", text: `${block.minutes} min` })
     ]),
     node("small", { className: "muted", text: meta.join(" · ") }),
+    category.label ? node("span", { className: `outlook-category-tag${category.style ? " has-category" : ""}`, text: category.label }) : null,
     block.reason ? node("small", { className: "muted", text: block.reason }) : null
   ]);
 };
