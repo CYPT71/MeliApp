@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { createAiService } from "../js/services/ai.js";
+import { AI_PROVIDER_IDS, AI_PROVIDERS, createAiService } from "../js/services/ai.js";
 
 const createStorage = () => {
   const values = new Map();
@@ -26,6 +26,12 @@ const state = {
 const jsonResponse = (body, status = 200) => new Response(JSON.stringify(body), {
   status,
   headers: { "Content-Type": "application/json" }
+});
+
+test("AI hub exposes only GPT Claude and Gemini", () => {
+  assert.deepEqual(AI_PROVIDER_IDS, ["openai", "anthropic", "gemini"]);
+  assert.deepEqual(Object.keys(AI_PROVIDERS), ["openai", "anthropic", "gemini"]);
+  assert.equal("custom" in AI_PROVIDERS, false);
 });
 
 test("OpenAI/GPT adapter reads Responses API output_text", async () => {
@@ -160,6 +166,11 @@ test("fusion mode asks all configured providers then synthesizes", async () => {
   assert.deepEqual(result.providersUsed.sort(), ["anthropic", "gemini", "openai"]);
   assert.equal(result.synthesisProvider, "openai");
   assert.equal(openAiCalls, 2);
+});
+
+test("unknown providers are rejected and cannot become endpoints", () => {
+  const ai = createAiService({ storage: createStorage(), fetchFn: async () => jsonResponse({}) });
+  assert.throws(() => ai.setKey("custom", "nope"), /non autorisé/);
 });
 
 test("API keys remain session-only and can be cleared", () => {
