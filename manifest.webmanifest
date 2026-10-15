@@ -21,6 +21,11 @@
   ],
   "shortcuts": [
     {
+      "name": "Tâches",
+      "short_name": "Tâches",
+      "url": "./#/tasks"
+    },
+    {
       "name": "Journée",
       "short_name": "Journée",
       "url": "./#/day"
@@ -29,11 +34,6 @@
       "name": "Agenda",
       "short_name": "Agenda",
       "url": "./#/calendar"
-    },
-    {
-      "name": "Progression",
-      "short_name": "Progression",
-      "url": "./#/progress"
     },
     {
       "name": "Réglages & connexions",
