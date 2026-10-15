@@ -113,3 +113,13 @@ test("project and task editor sections are hidden outside their dedicated task v
   state.features.taskWorkspace.view = "projects";
   assert.equal(taskWorkspaceFeatures.projects.ui.visible(state), true);
 });
+
+
+test("a persisted mindmap task view falls back to priorities", () => {
+  const state = baseState();
+  state.features.taskWorkspace.view = "mindmap";
+  assert.equal(taskWorkspaceFeatures.tasks.ui.visible(state), true);
+  const next = taskWorkspaceFeatures.taskWorkspace.run({ state, event: "tasks:view", payload: { view: "mindmap" } });
+  assert.equal(next.features.taskWorkspace.view, "today");
+  assert.equal(taskWorkspaceFeatures.taskWorkspace.ui.actions["tasks.view-mindmap"], undefined);
+});

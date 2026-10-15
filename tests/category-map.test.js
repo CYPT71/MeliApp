@@ -5,7 +5,8 @@ import { featureCategories, applyFeatureCategories } from "../js/feature-categor
 
 const expected = {
   calendar: ["microsoftAuth", "outlookSync", "calendarView", "manualSync"],
-  tasks: ["taskWorkspace", "tasks", "taskDecomposition", "taskMindmap", "taskEditor", "projects"],
+  tasks: ["taskWorkspace", "tasks", "taskDecomposition", "taskEditor", "projects"],
+  mindmap: ["taskMindmap"],
   day: ["flow"],
   progress: ["game", "stats", "achievements"],
   settings: ["spotify", "ai", "settings", "notifications", "install", "dataManagement", "diagnostics"]
@@ -18,8 +19,8 @@ test("production categories keep coherent features together", () => {
 });
 
 test("tasks have their own top-level navigation tab", () => {
-  assert.equal(Object.keys(featureCategories).length, 5);
-  assert.deepEqual(Object.keys(featureCategories), ["calendar", "tasks", "day", "progress", "settings"]);
+  assert.equal(Object.keys(featureCategories).length, 6);
+  assert.deepEqual(Object.keys(featureCategories), ["calendar", "tasks", "mindmap", "day", "progress", "settings"]);
   assert.equal(featureCategories.tasks.path, "tasks");
   assert.equal(featureCategories.tasks.title, "Tâches");
 });

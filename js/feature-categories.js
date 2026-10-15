@@ -22,7 +22,15 @@ export const featureCategories = Object.freeze({
     title: "Tâches",
     icon: "✅",
     order: 20,
-    features: ["taskWorkspace", "tasks", "taskDecomposition", "taskMindmap", "taskEditor", "projects"]
+    features: ["taskWorkspace", "tasks", "taskDecomposition", "taskEditor", "projects"]
+  },
+  mindmap: {
+    id: "mindmap",
+    path: "mindmap",
+    title: "Mindmap",
+    icon: "🌳",
+    order: 25,
+    features: ["taskMindmap"]
   },
   day: {
     id: "day",

@@ -10,7 +10,7 @@ import {
 
 const MANUAL_SPLIT_XP = 8;
 const MAX_REWARDED_MANUAL_SPLITS = 5;
-const VIEWS = new Set(["today", "list", "matrix", "mindmap", "projects"]);
+const VIEWS = new Set(["today", "list", "matrix", "projects"]);
 
 const featureState = (state, name, fallback = {}) => state.features?.[name] ?? fallback;
 const setFeatureState = (state, name, value) => ({
@@ -48,6 +48,10 @@ const formValue = (target, name) => target.closest("form")?.elements?.namedItem(
 const formChecked = (target, name) => Boolean(target.closest("form")?.elements?.namedItem(name)?.checked);
 const taskItems = (state) => featureState(state, "tasks", { items: [] }).items ?? [];
 const projectItems = (state) => featureState(state, "projects", { items: [] }).items ?? [];
+const workspaceView = (state) => {
+  const view = featureState(state, "taskWorkspace", {}).view;
+  return VIEWS.has(view) ? view : "today";
+};
 const activeTasks = (state) => taskItems(state).filter((task) => task.status !== "completed");
 const parentTasks = (state) => activeTasks(state).filter((task) => !task.parentTaskId);
 
@@ -433,7 +437,7 @@ const createChildTask = (parent, title, source, index = 0) => ({
 });
 
 const workspaceRender = ({ state }) => {
-  const current = featureState(state, "taskWorkspace", { view: "today" });
+  const current = { ...featureState(state, "taskWorkspace", {}), view: workspaceView(state) };
   const counts = {
     active: parentTasks(state).length,
     urgent: groupTasksByEisenhower(parentTasks(state)).do?.length ?? 0
@@ -447,7 +451,6 @@ const workspaceRender = ({ state }) => {
       button("Priorités", "tasks.view-today", { className: current.view === "today" ? "is-active" : "", role: "tab", "aria-selected": current.view === "today" }),
       button("Liste", "tasks.view-list", { className: current.view === "list" ? "is-active" : "", role: "tab", "aria-selected": current.view === "list" }),
       button("Matrice", "tasks.view-matrix", { className: current.view === "matrix" ? "is-active" : "", role: "tab", "aria-selected": current.view === "matrix" }),
-      button("Mindmap", "tasks.view-mindmap", { className: current.view === "mindmap" ? "is-active" : "", role: "tab", "aria-selected": current.view === "mindmap" }),
       button("Projets", "tasks.view-projects", { className: current.view === "projects" ? "is-active" : "", role: "tab", "aria-selected": current.view === "projects" })
     ])
   ]);
@@ -483,7 +486,6 @@ export const taskWorkspaceFeatures = {
         "tasks.view-today": ({ dispatch }) => dispatch("tasks:view", { view: "today" }),
         "tasks.view-list": ({ dispatch }) => dispatch("tasks:view", { view: "list" }),
         "tasks.view-matrix": ({ dispatch }) => dispatch("tasks:view", { view: "matrix" }),
-        "tasks.view-mindmap": ({ dispatch }) => dispatch("tasks:view", { view: "mindmap" }),
         "tasks.view-projects": ({ dispatch }) => dispatch("tasks:view", { view: "projects" }),
         "tasks.create-toggle": ({ dispatch }) => dispatch("tasks:create-toggle"),
         "tasks.toggle-details": ({ target, dispatch }) => dispatch("tasks:toggle-details", { id: target.dataset.id }),
@@ -501,9 +503,9 @@ export const taskWorkspaceFeatures = {
     description: "Tâches",
     ui: {
       order: 10,
-      visible: (state) => ["today", "list", "matrix"].includes(featureState(state, "taskWorkspace", { view: "today" }).view),
+      visible: (state) => ["today", "list", "matrix"].includes(workspaceView(state)),
       render: ({ state }) => {
-        const view = featureState(state, "taskWorkspace", { view: "today" }).view;
+        const view = workspaceView(state);
         if (view === "matrix") return matrixRender(state);
         if (view === "list") return listRender(state);
         return todayRender(state);
@@ -603,7 +605,6 @@ export const taskWorkspaceFeatures = {
     description: "Mindmap",
     ui: {
       order: 20,
-      visible: (state) => featureState(state, "taskWorkspace", { view: "today" }).view === "mindmap",
       render: ({ state }) => mindmapRender(state)
     }
   },
@@ -622,7 +623,7 @@ export const taskWorkspaceFeatures = {
     ui: {
       ...(advancedFeatures.projects.ui ?? {}),
       order: 30,
-      visible: (state) => featureState(state, "taskWorkspace", { view: "today" }).view === "projects"
+      visible: (state) => workspaceView(state) === "projects"
     }
   }
 };

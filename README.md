@@ -14,7 +14,7 @@ Le produit contient notamment :
 - tâches avec importance, échéance, durée, difficulté et progression ;
 - matrice d’Eisenhower calculée automatiquement ;
 - onglet Tâches dédié ;
-- vue Liste et vue Mindmap ;
+- vue Liste et onglet Mindmap indépendant ;
 - projets / Boss reliés aux tâches ;
 - sous-tâches reliées à leur tâche parente ;
 - découpage manuel récompensé en XP ;
@@ -31,7 +31,8 @@ Le produit contient notamment :
 | Catégorie | Route | Contenu principal |
 |---|---|---|
 | Agenda | `#/calendar` | Outlook, synchronisation, événements |
-| Tâches | `#/tasks` | liste, matrice Eisenhower, mindmap, projets, découpage |
+| Tâches | `#/tasks` | liste, matrice Eisenhower, projets, découpage |
+| Mindmap | `#/mindmap` | carte de tous les projets, tâches et sous-tâches |
 | Journée | `#/day` | Flow / focus de la journée |
 | Progression | `#/progress` | XP, niveaux, stats, succès |
 | Réglages & connexions | `#/settings` | Spotify, IA, préférences, notifications, données, diagnostic |
