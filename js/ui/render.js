@@ -26,7 +26,7 @@ const appendRenderable = (host, rendered) => {
 const pageIsVisible = ({ names, registry, state, route }) =>
   names.some((name) => {
     const feature = registry[name];
-    if (!feature) return false;
+    if (!feature || typeof feature.ui?.render !== "function") return false;
     if (!(feature.enabled?.(state) ?? true)) return false;
     return feature.ui?.visible?.({ state, route, feature: name }) ?? true;
   });
