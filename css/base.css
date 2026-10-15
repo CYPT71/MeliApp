@@ -161,6 +161,29 @@ progress { width: 100%; }
 .stat-card strong { font-size: 1.55rem; }
 .stat-card span { opacity: .68; font-size: .9rem; }
 
+.ai-hub { gap: 1rem; }
+.ai-provider-grid {
+  display: grid;
+  gap: .8rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+.ai-provider {
+  min-width: 0;
+  padding-top: .55rem;
+}
+.ai-provider legend {
+  padding: 0 .35rem;
+  font-weight: 750;
+}
+.ai-provider input[type="password"] { letter-spacing: .04em; }
+.ai-hub details {
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 1rem;
+  padding: .8rem;
+  background: rgba(0,0,0,.12);
+}
+.ai-hub summary { cursor: pointer; font-weight: 650; }
+
 .diagnostic-row { padding: .55rem 0; border-bottom: 1px solid rgba(255,255,255,.08); }
 .diagnostic-error {
   white-space: pre-wrap;
