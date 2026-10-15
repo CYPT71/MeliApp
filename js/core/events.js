@@ -1,0 +1,21 @@
+export const EVENTS = Object.freeze({
+  APP_START: "app:start",
+  APP_RESUME: "app:resume",
+  APP_ONLINE: "app:online",
+  APP_OFFLINE: "app:offline",
+  SYNC_MANUAL: "sync:manual",
+  CALENDAR_SYNCED: "calendar:synced",
+  ENERGY_CHANGED: "energy:changed",
+  TASK_CREATED: "task:created",
+  TASK_UPDATED: "task:updated",
+  TASK_COMPLETED: "task:completed",
+  TASK_DEFERRED: "task:deferred",
+  SESSION_STARTED: "session:started",
+  SESSION_STOPPED: "session:stopped",
+  SESSION_COMPLETED: "session:completed",
+  SPOTIFY_CONNECTED: "spotify:connected",
+  SPOTIFY_DISCONNECTED: "spotify:disconnected",
+  AI_CONNECTED: "ai:connected",
+  AI_DISCONNECTED: "ai:disconnected",
+  INSTALL_AVAILABLE: "install:available"
+});
