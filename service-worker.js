@@ -1,4 +1,4 @@
-const CACHE = "meliapp-shell-v32";
+const CACHE = "meliapp-shell-v33";
 const SHELL = [
   "./",
   "./index.html",
