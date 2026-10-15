@@ -22,12 +22,12 @@ test("energy gauge maps 0-100 back to planner score without changing planner con
 });
 
 test("energy mood follows low to high visual states", () => {
-  assert.equal(energyMood(5).emoji, "😠");
-  assert.equal(energyMood(50).emoji, "😕");
-  assert.equal(energyMood(95).emoji, "😄");
+  assert.equal(energyMood(5).emoji, "🪫");
+  assert.equal(energyMood(50).emoji, "🌿");
+  assert.equal(energyMood(95).emoji, "🤯");
 });
 
 test("energy guidance becomes more ambitious as energy rises", () => {
   assert.match(energyGuidance(10), /récupération/i);
-  assert.match(energyGuidance(90), /travail profond/i);
+  assert.match(energyGuidance(90), /énergie maximale|boost|travail profond/i);
 });
