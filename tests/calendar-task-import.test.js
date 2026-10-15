@@ -21,13 +21,19 @@ test("un événement Outlook devient une tâche exploitable", () => {
   assert.equal(task.sourceEventId, "evt-42");
 });
 
+test("la popup agenda peut remplacer ou retirer la deadline de la tâche", () => {
+  assert.equal(calendarEventToTask(event, { deadline: "2026-10-21T18:30" }).deadline, "2026-10-21T18:30");
+  assert.equal(calendarEventToTask(event, { deadline: "" }).deadline, null);
+});
+
 test("l’import agenda ajoute une seule tâche par événement", () => {
   const initial = {
     calendar: { events: [event] },
     features: { tasks: { items: [] } }
   };
-  const once = calendarTaskFeatures.calendarTaskImport.run({ state: initial, payload: { eventId: "evt-42" } });
+  const once = calendarTaskFeatures.calendarTaskImport.run({ state: initial, payload: { eventId: "evt-42", deadline: "2026-10-21T18:30" } });
   assert.equal(once.features.tasks.items.length, 1);
+  assert.equal(once.features.tasks.items[0].deadline, "2026-10-21T18:30");
   const twice = calendarTaskFeatures.calendarTaskImport.run({ state: once, payload: { eventId: "evt-42" } });
   assert.equal(twice.features.tasks.items.length, 1);
   assert.equal(twice.features.tasks.items[0].id, outlookTaskId("evt-42"));
