@@ -21,7 +21,9 @@ Le produit dépasse désormais le simple squelette technique. Le registre runtim
 - XP, niveaux, statistiques et succès ;
 - Spotify optionnel avec bibliothèque de playlists ;
 - playlists faible énergie / focus / récupération / boss ;
-- IA optionnelle avec fallback local ;
+- assistant IA unifié GPT + Claude + Gemini ;
+- modes IA Simple, Secours et Fusion ;
+- fallback local si les IA ne sont pas configurées ou échouent ;
 - notifications opportunistes et quiet hours ;
 - export / import / reset des données ;
 - diagnostic local ;
@@ -39,10 +41,10 @@ Les features proches ne créent plus une forêt de pages séparées. Elles sont 
 | Organisation | `#/organize` | tâches, éditeur, projets / Boss |
 | Focus | `#/focus` | sessions Libre / Flow / Focus / Pomodoro |
 | Progression | `#/progress` | XP, niveaux, stats, succès |
-| Connexions | `#/integrations` | Spotify, IA |
+| Connexions | `#/integrations` | Spotify, assistant IA fusionné |
 | Réglages | `#/settings` | préférences, notifications, installation, données, diagnostic |
 
-L’accueil garde uniquement ce qui mérite d’être devant les yeux immédiatement, notamment l’énergie et la mission « Maintenant ». Une rare victoire contre le syndrome du tableau de bord qui finit par nécessiter son propre tableau de bord.
+L’accueil garde uniquement ce qui mérite d’être devant les yeux immédiatement, notamment l’énergie et la mission « Maintenant ».
 
 ## Architecture déclarative
 
@@ -144,20 +146,7 @@ category: {
 
 Toutes les features ayant la même route sont rendues sur la même page. Le routeur déduplique automatiquement la navigation et le renderer affiche un seul titre de catégorie puis une section par feature.
 
-Pour éviter de répéter la même catégorie partout, `js/feature-categories.js` permet de grouper déclarativement plusieurs features :
-
-```js
-export const featureCategories = {
-  organize: {
-    id: "organize",
-    title: "Organisation",
-    icon: "🧭",
-    features: ["tasks", "taskEditor", "projects"]
-  }
-};
-```
-
-Une catégorie définie directement sur une feature reste prioritaire.
+Pour éviter de répéter la même catégorie partout, `js/feature-categories.js` permet de grouper déclarativement plusieurs features.
 
 ## Outlook
 
@@ -194,7 +183,52 @@ Spotify est facultatif. Le service utilise PKCE et prend en charge :
 - affectation aux modes `lowEnergy`, `focus`, `recovery` et `boss` ;
 - déclenchement low-energy uniquement sous le seuil configuré.
 
-Le comportement réel de lecture dépend des contraintes Spotify : compte, appareil actif, Premium et politiques d’autoplay.
+## Assistant IA fusionné
+
+MeliApp n’expose plus trois assistants séparés. La feature `ai` est un **hub unique** capable d’utiliser les trois fournisseurs principaux :
+
+- GPT / OpenAI ;
+- Claude / Anthropic ;
+- Gemini / Google.
+
+Un endpoint personnalisé reste disponible en option pour un proxy ou un fournisseur compatible.
+
+### Modes
+
+`single`
+
+Utilise le premier fournisseur actif et correctement configuré.
+
+`fallback`
+
+Essaie les fournisseurs dans l’ordre jusqu’à obtenir une réponse. Cela permet de continuer si un fournisseur est indisponible ou limité.
+
+`fusion`
+
+Interroge en parallèle toutes les IA actives, collecte les propositions disponibles, puis demande au fournisseur choisi comme **IA de synthèse** de produire une seule prochaine action cohérente.
+
+Si la synthèse échoue mais qu’au moins une proposition existe, MeliApp revient à une réponse dégradée au lieu de bloquer le planner. Si toutes les IA échouent, le fallback local « Je suis bloqué » reste disponible.
+
+### Sécurité des clés
+
+Les clés API entrées dans l’interface sont conservées dans `sessionStorage` uniquement :
+
+- elles ne sont pas enregistrées dans IndexedDB ;
+- elles ne font pas partie de l’export JSON MeliApp ;
+- elles disparaissent avec la session du navigateur ;
+- elles ne doivent jamais être commitées dans le dépôt.
+
+L’état persistant ne garde que la configuration non sensible : fournisseur activé, modèle, endpoint éventuel et indication qu’une clé était présente dans la session.
+
+### API utilisées
+
+Le service normalise les formats natifs des trois fournisseurs :
+
+- OpenAI Responses API ;
+- Anthropic Messages API ;
+- Google Gemini `models.generateContent`.
+
+Les noms de modèles ne sont volontairement pas figés dans le code : l’utilisateur renseigne le modèle disponible dans son propre compte, ce qui évite de transformer chaque renommage de modèle en incendie de production.
 
 ## Planner et fonctions exécutives
 
@@ -207,7 +241,7 @@ Le planner reste local et fonctionne sans IA. Il combine :
 - possibilité de découper ;
 - bonus de tâche déjà commencée.
 
-Une couche de stabilité évite de changer de mission pour un gain minuscule. Le bouton « Changer » reste prioritaire, puisque lutter contre la volonté de l’utilisateur serait un choix de design assez spectaculaire.
+Une couche de stabilité évite de changer de mission pour un gain minuscule. Le bouton « Changer » reste prioritaire.
 
 ## Données locales
 
@@ -216,7 +250,7 @@ IndexedDB conserve l’état produit. Les outils de données permettent :
 - export JSON ;
 - import JSON ;
 - reset des tâches, projets, sessions et progression ;
-- conservation des tokens OAuth en dehors de l’export, dans `sessionStorage`.
+- conservation des tokens OAuth et clés IA en dehors de l’export, dans `sessionStorage`.
 
 ## PWA
 
@@ -272,7 +306,7 @@ npm test
 npm run check
 ```
 
-Les tests couvrent notamment le core fonctionnel, le routeur, les catégories partagées, le domaine, les features produit, les préférences, les projets, la stabilité du planner, l’écriture Outlook via mock, Spotify via mock et la remise à zéro des données.
+Les tests couvrent notamment le core fonctionnel, le routeur, les catégories partagées, le domaine, les features produit, le planner, Outlook, Spotify et les adaptateurs GPT / Claude / Gemini avec leurs modes de secours et de fusion.
 
 ## CI/CD
 
