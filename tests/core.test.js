@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { createApp, runFeatures } from "../js/core/app.js";
 import { createFeatureState, featuresForEvent, validateFeature } from "../js/core/registry.js";
 import {
+  categoryConfig,
   featurePages,
   findPageByRoute,
   hrefForPage,
@@ -12,6 +13,7 @@ import {
   routeFromHash
 } from "../js/core/router.js";
 import { createInitialState } from "../js/core/state.js";
+import { applyFeatureCategories } from "../js/feature-categories.js";
 
 test("createFeatureState builds state from the registry without manual wiring", () => {
   const registry = {
@@ -113,6 +115,7 @@ test("createApp persists and notifies after dispatch", async () => {
 test("validateFeature rejects invalid contracts", () => {
   assert.throws(() => validateFeature("bad", { run: true }), /run must be a function/);
   assert.throws(() => validateFeature("badPage", { page: "yes" }), /page must be true, false or an object/);
+  assert.throws(() => validateFeature("badCategory", { category: 42 }), /category must be a string, false or an object/);
 });
 
 test("page true automatically creates a page from the feature name", () => {
@@ -120,7 +123,9 @@ test("page true automatically creates a page from the feature name", () => {
     path: "tasks",
     title: "Mes tâches",
     nav: true,
-    order: 0
+    order: 0,
+    icon: null,
+    grouped: false
   });
 });
 
@@ -129,8 +134,52 @@ test("page metadata can customize route title icon and navigation", () => {
     pageConfig("energy", {
       page: { path: "/mood/", title: "Énergie", icon: "⚡", nav: false, order: 4 }
     }),
-    { path: "mood", title: "Énergie", icon: "⚡", nav: false, order: 4 }
+    { path: "mood", title: "Énergie", icon: "⚡", nav: false, order: 4, grouped: false }
   );
+});
+
+test("a category string is enough to create a shared route", () => {
+  assert.deepEqual(categoryConfig("tasks", { category: "organize" }), {
+    id: "organize",
+    path: "organize",
+    title: "Organize",
+    nav: true,
+    order: 0,
+    icon: null,
+    grouped: true
+  });
+});
+
+test("features with the same category are deduplicated into one navigation page", () => {
+  const registry = {
+    tasks: { description: "Tâches", category: { id: "organize", title: "Organisation", icon: "🧭", order: 20 } },
+    projects: { description: "Boss", category: { id: "organize", title: "Organisation", icon: "🧭", order: 20 } },
+    spotify: { description: "Spotify", category: { id: "integrations", title: "Connexions", order: 50 } }
+  };
+
+  const pages = featurePages(registry);
+  assert.equal(pages.length, 2);
+  assert.deepEqual(pages[0].names, ["tasks", "projects"]);
+  assert.equal(pages[0].page.path, "organize");
+  assert.equal(pages[0].page.title, "Organisation");
+});
+
+test("applyFeatureCategories adds category metadata without mutating feature definitions", () => {
+  const input = { tasks: { description: "Tâches" }, energy: { description: "Énergie", category: "today" } };
+  const output = applyFeatureCategories(input, {
+    organize: { id: "organize", title: "Organisation", features: ["tasks"] }
+  });
+
+  assert.equal(input.tasks.category, undefined);
+  assert.equal(output.tasks.category.id, "organize");
+  assert.equal(output.energy.category, "today");
+});
+
+test("applyFeatureCategories rejects one feature in multiple categories", () => {
+  assert.throws(() => applyFeatureCategories({ tasks: {} }, {
+    a: { id: "a", features: ["tasks"] },
+    b: { id: "b", features: ["tasks"] }
+  }), /more than one category/);
 });
 
 test("featurePages discovers and orders pages without manual routing", () => {
@@ -143,20 +192,22 @@ test("featurePages discovers and orders pages without manual routing", () => {
   assert.deepEqual(featurePages(registry).map(({ name }) => name), ["energy", "tasks"]);
 });
 
-test("hash routes resolve to the matching feature page", () => {
+test("hash routes resolve to the matching feature page or category", () => {
   const registry = {
-    tasks: { page: true },
+    tasks: { category: { id: "organize", title: "Organisation" } },
     settings: { page: { path: "preferences", title: "Réglages" } }
   };
 
   assert.equal(routeFromHash("#/preferences/"), "preferences");
   assert.equal(findPageByRoute(registry, "preferences")?.name, "settings");
+  assert.deepEqual(findPageByRoute(registry, "organize")?.names, ["tasks"]);
   assert.equal(hrefForPage({ path: "preferences" }), "#/preferences");
 });
 
-test("page features only render on their route and widgets only on home", () => {
+test("category features only render on their shared route and widgets only on home", () => {
   assert.equal(isFeatureVisibleOnRoute({ name: "widget", feature: {}, route: "" }), true);
-  assert.equal(isFeatureVisibleOnRoute({ name: "widget", feature: {}, route: "tasks" }), false);
-  assert.equal(isFeatureVisibleOnRoute({ name: "tasks", feature: { page: true }, route: "" }), false);
-  assert.equal(isFeatureVisibleOnRoute({ name: "tasks", feature: { page: true }, route: "tasks" }), true);
+  assert.equal(isFeatureVisibleOnRoute({ name: "widget", feature: {}, route: "organize" }), false);
+  assert.equal(isFeatureVisibleOnRoute({ name: "tasks", feature: { category: "organize" }, route: "" }), false);
+  assert.equal(isFeatureVisibleOnRoute({ name: "tasks", feature: { category: "organize" }, route: "organize" }), true);
+  assert.equal(isFeatureVisibleOnRoute({ name: "projects", feature: { category: "organize" }, route: "organize" }), true);
 });
