@@ -1,16 +1,27 @@
-const CACHE = "meliapp-shell-v2";
+const CACHE = "meliapp-shell-v3";
 const SHELL = [
   "./",
   "./index.html",
   "./css/base.css",
   "./js/main.js",
+  "./js/features.js",
+  "./js/config.js",
   "./js/core/app.js",
   "./js/core/events.js",
   "./js/core/registry.js",
   "./js/core/router.js",
   "./js/core/state.js",
+  "./js/domain/scoring.js",
+  "./js/domain/scheduling.js",
+  "./js/domain/xp.js",
   "./js/services/storage.js",
   "./js/services/notifications.js",
+  "./js/services/oauth.js",
+  "./js/services/outlook.js",
+  "./js/services/spotify.js",
+  "./js/services/ai.js",
+  "./js/services/install.js",
+  "./js/services/index.js",
   "./js/ui/actions.js",
   "./js/ui/render.js",
   "./manifest.webmanifest"
@@ -30,7 +41,6 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
-
   event.respondWith(
     fetch(event.request)
       .then((response) => {
