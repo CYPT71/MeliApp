@@ -26,7 +26,8 @@ const appendRenderable = (host, rendered) => {
 const renderNavigation = ({ root, registry, state, route }) => {
   const pages = featurePages(registry).filter(({ feature, page }) => {
     if (!page.nav) return false;
-    return feature.enabled?.(state) ?? true;
+    if (!(feature.enabled?.(state) ?? true)) return false;
+    return feature.ui?.visible?.({ state, route }) ?? true;
   });
 
   if (pages.length === 0) return;
@@ -45,7 +46,7 @@ const renderNavigation = ({ root, registry, state, route }) => {
     const link = document.createElement("a");
     link.href = hrefForPage(page);
     link.className = page.path === route ? "feature-nav__link is-active" : "feature-nav__link";
-    link.setAttribute("aria-current", page.path === route ? "page" : "false");
+    if (page.path === route) link.setAttribute("aria-current", "page");
     link.textContent = page.icon ? `${page.icon} ${page.title}` : page.title;
     nav.append(link);
   }
@@ -68,11 +69,14 @@ export const renderFeatures = ({ root, registry, state, dispatch, route = "" }) 
     return;
   }
 
-  for (const [name, feature] of entries(registry)) {
-    if (typeof feature.ui?.render !== "function") continue;
-    if (feature.enabled && !feature.enabled(state)) continue;
-    if (!isFeatureVisibleOnRoute({ name, feature, route })) continue;
+  const visible = entries(registry)
+    .filter(([name, feature]) => typeof feature.ui?.render === "function")
+    .filter(([name, feature]) => !feature.enabled || feature.enabled(state))
+    .filter(([name, feature]) => feature.ui?.visible?.({ state, route, feature: name }) ?? true)
+    .filter(([name, feature]) => isFeatureVisibleOnRoute({ name, feature, route }))
+    .sort(([, a], [, b]) => Number(a.ui?.order ?? 100) - Number(b.ui?.order ?? 100));
 
+  for (const [name, feature] of visible) {
     const section = document.createElement("section");
     section.dataset.feature = name;
     section.dataset.zone = feature.ui.zone ?? "main";
@@ -94,7 +98,7 @@ export const renderFeatures = ({ root, registry, state, dispatch, route = "" }) 
   if (renderedCount === 0 && !route) {
     const empty = document.createElement("div");
     empty.className = "empty-state";
-    empty.innerHTML = "<h2>Noyau prêt</h2><p>Ajoute des fonctionnalités dans l’objet <code>features</code>. Le core fera le reste.</p>";
+    empty.innerHTML = "<h2>Aucune mission à afficher</h2><p>Le noyau tourne, les features décideront du reste.</p>";
     root.append(empty);
   }
 };
