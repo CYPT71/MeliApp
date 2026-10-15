@@ -14,7 +14,7 @@ export const featureCategories = Object.freeze({
     title: "Agenda",
     icon: "🗓️",
     order: 10,
-    features: ["microsoftAuth", "outlookSync", "calendarView", "manualSync"]
+    features: ["microsoftAuth", "calendarSources", "outlookSync", "calendarView", "manualSync"]
   },
   tasks: {
     id: "tasks",
