@@ -15,7 +15,6 @@ body {
 }
 
 button, input, select, textarea { font: inherit; }
-
 a { color: inherit; }
 
 .app-header {
@@ -37,6 +36,7 @@ a { color: inherit; }
 }
 
 h1 { margin: .1rem 0 0; font-size: clamp(1.6rem, 8vw, 2.4rem); }
+h2 { margin: .25rem 0; }
 
 .app {
   display: grid;
@@ -81,24 +81,62 @@ h1 { margin: .1rem 0 0; font-size: clamp(1.6rem, 8vw, 2.4rem); }
   box-shadow: 0 18px 55px rgba(0,0,0,.2);
 }
 
-.feature--page {
-  min-height: 40vh;
-}
-
-.feature-page__title {
-  margin: 0 0 1rem;
-  font-size: clamp(1.4rem, 7vw, 2.2rem);
-}
-
+.feature--page { min-height: 40vh; }
+.feature-page__title { margin: 0 0 1rem; font-size: clamp(1.4rem, 7vw, 2.2rem); }
 .empty-state code { word-break: break-word; }
+
+.stack { display: grid; gap: .8rem; }
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: .55rem; }
+.row--between { justify-content: space-between; }
+.muted { opacity: .68; }
+.error { color: #ffb4b4; }
+.badge { padding: .25rem .55rem; border-radius: 999px; background: rgba(255,255,255,.1); font-size: .85rem; }
+.hint { padding: .8rem; border-radius: .9rem; background: rgba(255,255,255,.08); }
+.mission { gap: .65rem; }
+.game-strip { min-height: 2rem; }
+.focus-time { font-size: clamp(2rem, 12vw, 4.5rem); font-weight: 800; margin: .5rem 0; }
+
+.feature-form {
+  display: grid;
+  gap: .75rem;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.field { display: grid; gap: .35rem; }
+.field > span { font-size: .85rem; opacity: .72; }
+input:not([type="range"]):not([type="checkbox"]), select, textarea {
+  width: 100%;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(0,0,0,.2);
+  color: inherit;
+  border-radius: .8rem;
+  padding: .7rem .8rem;
+}
+input[type="range"] { width: 100%; }
+
+.list-item {
+  display: grid;
+  gap: .5rem;
+  padding: .9rem;
+  border: 1px solid rgba(255,255,255,.09);
+  border-radius: 1rem;
+  background: rgba(0,0,0,.12);
+}
+.list-item.is-done { opacity: .55; }
+progress { width: 100%; }
 
 button {
   min-height: 44px;
-  border: 0;
+  border: 1px solid rgba(255,255,255,.08);
+  background: rgba(255,255,255,.12);
+  color: inherit;
   border-radius: .9rem;
   padding: .7rem 1rem;
   cursor: pointer;
 }
+button:hover, button:focus-visible, button.is-active { background: rgba(255,255,255,.2); }
+button.primary { background: #f5f5f5; color: #101114; font-weight: 700; }
+.install-button { width: 100%; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
