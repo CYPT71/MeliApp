@@ -92,7 +92,7 @@ const importancePicker = (selected = 3) => {
 };
 
 const selectProject = (state, selected = "") => {
-  const select = el("select", { name: "projectId" });
+  const select = el("select", { name: "projectId", "aria-label": "Projet" });
   select.append(el("option", { value: "", text: "Sans projet", selected: !selected }));
   for (const project of projectItems(state)) {
     select.append(el("option", { value: project.id, text: project.title, selected: project.id === selected }));
@@ -233,19 +233,20 @@ const taskCard = (state, task, { compact = false } = {}) => {
 
 const quickCreate = (state) => {
   const workspace = featureState(state, "taskWorkspace", {});
-  const form = el("form", { className: "task-quick-create" });
+  const draft = workspace.draft ?? {};
+  const form = el("form", { className: "task-quick-create", "data-action": "tasks.create-quick" });
   form.append(el("div", { className: "task-quick-create__main" }, [
-    el("input", { name: "title", placeholder: "Ajouter une tâche…", autocomplete: "off", "aria-label": "Titre de la nouvelle tâche" }),
-    button("Ajouter", "tasks.create-quick", { className: "primary" }),
+    el("input", { name: "title", value: draft.title ?? "", required: true, placeholder: "Ajouter une tâche…", autocomplete: "off", "aria-label": "Titre de la nouvelle tâche" }),
+    el("button", { type: "submit", text: "Ajouter", className: "primary" }),
     button(workspace.createExpanded ? "Moins" : "Options", "tasks.create-toggle", { className: "secondary" })
   ]));
 
   if (workspace.createExpanded) {
     form.append(el("div", { className: "task-create-options" }, [
-      el("label", { className: "field" }, [el("span", { text: "Durée" }), el("input", { name: "estimateMinutes", type: "number", min: 5, step: 5, value: 25 })]),
-      el("label", { className: "field" }, [el("span", { text: "Échéance" }), el("input", { name: "deadline", type: "datetime-local" })]),
-      selectProject(state),
-      el("div", { className: "stack compact task-create-importance" }, [el("span", { text: "Importance" }), importancePicker(3)])
+      el("label", { className: "field" }, [el("span", { text: "Durée" }), el("input", { name: "estimateMinutes", type: "number", min: 5, step: 5, value: draft.estimateMinutes ?? 25 })]),
+      el("label", { className: "field" }, [el("span", { text: "Échéance" }), el("input", { name: "deadline", type: "datetime-local", value: draft.deadline ?? "" })]),
+      selectProject(state, draft.projectId ?? ""),
+      el("div", { className: "stack compact task-create-importance" }, [el("span", { text: "Importance" }), importancePicker(draft.importance ?? 3)])
     ]));
   }
   return form;
@@ -475,11 +476,13 @@ export const taskWorkspaceFeatures = {
       statusFilter: "active",
       projectFilter: "all"
     },
-    when: ["tasks:view", "tasks:create-toggle", "tasks:toggle-details", "tasks:edit-open", "tasks:edit-close", "tasks:filter"],
+    when: ["tasks:view", "tasks:create-toggle", "tasks:prepare-create", "tasks:create-reset", "tasks:toggle-details", "tasks:edit-open", "tasks:edit-close", "tasks:filter"],
     run: ({ state, event, payload }) => {
       const current = featureState(state, "taskWorkspace", {});
       if (event === "tasks:view") return setFeatureState(state, "taskWorkspace", { ...current, view: VIEWS.has(payload?.view) ? payload.view : "today", expandedId: null, editingId: null });
-      if (event === "tasks:create-toggle") return setFeatureState(state, "taskWorkspace", { ...current, createExpanded: !current.createExpanded });
+      if (event === "tasks:create-toggle") return setFeatureState(state, "taskWorkspace", { ...current, createExpanded: !current.createExpanded, draft: { ...(current.draft ?? {}), ...(payload?.draft ?? {}) } });
+      if (event === "tasks:prepare-create") return setFeatureState(state, "taskWorkspace", { ...current, view: "list", createExpanded: true, draft: { title: "", projectId: payload?.projectId ?? "" }, query: "", statusFilter: "active", projectFilter: "all" });
+      if (event === "tasks:create-reset") return setFeatureState(state, "taskWorkspace", { ...current, view: "list", draft: { projectId: payload?.projectId ?? "" }, query: "", statusFilter: "active", projectFilter: "all" });
       if (event === "tasks:toggle-details") return setFeatureState(state, "taskWorkspace", { ...current, expandedId: current.expandedId === payload?.id ? null : payload?.id, editingId: null });
       if (event === "tasks:edit-open") return setFeatureState(state, "taskWorkspace", { ...current, expandedId: payload?.id, editingId: payload?.id });
       if (event === "tasks:edit-close") return setFeatureState(state, "taskWorkspace", { ...current, editingId: null });
@@ -494,7 +497,10 @@ export const taskWorkspaceFeatures = {
         "tasks.view-list": ({ dispatch }) => dispatch("tasks:view", { view: "list" }),
         "tasks.view-matrix": ({ dispatch }) => dispatch("tasks:view", { view: "matrix" }),
         "tasks.view-projects": ({ dispatch }) => dispatch("tasks:view", { view: "projects" }),
-        "tasks.create-toggle": ({ dispatch }) => dispatch("tasks:create-toggle"),
+        "tasks.create-toggle": ({ target, dispatch }) => {
+          const form = target.closest("form");
+          return dispatch("tasks:create-toggle", { draft: Object.fromEntries(new FormData(form)) });
+        },
         "tasks.toggle-details": ({ target, dispatch }) => dispatch("tasks:toggle-details", { id: target.dataset.id }),
         "tasks.edit-open": ({ target, dispatch }) => dispatch("tasks:edit-open", { id: target.dataset.id }),
         "tasks.edit-close": ({ dispatch }) => dispatch("tasks:edit-close"),
@@ -518,18 +524,25 @@ export const taskWorkspaceFeatures = {
         return todayRender(state);
       },
       actions: {
-        "tasks.create-quick": async ({ target, dispatch }) => {
+        "tasks.create-quick": async ({ event, target, dispatch }) => {
+          if (event && event.type !== "submit") return;
+          const form = target.closest("form");
           const title = formValue(target, "title").trim();
-          if (!title) return;
+          if (!title) {
+            const input = form?.elements.namedItem("title");
+            if (input) { input.setCustomValidity("Donne un nom à la tâche."); input.reportValidity(); input.addEventListener("input", () => input.setCustomValidity(""), { once: true }); }
+            return;
+          }
+          const projectId = formValue(target, "projectId") || null;
           const expanded = Boolean(target.closest("form")?.querySelector("[name='estimateMinutes']"));
           await dispatch("task:created", {
             title,
             estimateMinutes: expanded ? formValue(target, "estimateMinutes") : 25,
             deadline: expanded ? formValue(target, "deadline") || null : null,
             importance: expanded ? normalizeImportance(formValue(target, "importance")) : 3,
-            projectId: expanded ? formValue(target, "projectId") || null : null
+            projectId: expanded ? projectId : null
           });
-          target.closest("form")?.reset();
+          await dispatch("tasks:create-reset", { projectId });
         },
         "tasks.complete": ({ target, dispatch }) => dispatch("task:completed", { id: target.dataset.id }),
         "tasks.subtask-reopen": ({ target, dispatch }) => dispatch("task:updated", { id: target.dataset.id, status: "active", progress: 0 }),

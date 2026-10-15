@@ -244,3 +244,7 @@ Depuis une tâche (liste, détails ou projet), choisir **Pas à pas**. L’ongle
 Au redémarrage, une activité restée ouverte revient en pause, prête à être reprise. Changer d’activité conserve les repères de chaque tâche. Les étapes correspondant à des sous-tâches se terminent via les actions habituelles ; la tâche principale se termine uniquement après confirmation explicite. Les pauses et déclarations de décrochage ne retirent ni n’ajoutent d’XP et ne modifient pas les séries.
 
 Cette première version n’envoie pas de rappels automatiques et ne prétend pas détecter l’attention. Les rappels réglables et les retours réflexifs sont prévus pour une évolution après essais du parcours.
+
+Dans Pas à pas, le sélecteur **Tâche à accompagner** reste visible en haut et propose les tâches en cours, y compris les sous-tâches. Le bouton **Commencer ou reprendre** ouvre le repère correspondant sans effacer les autres sessions.
+
+Pour créer une tâche, saisir son titre puis utiliser **Ajouter** ou Entrée. Les options conservent le titre saisi. Depuis un projet, **Ajouter une tâche** ouvre ce formulaire avec le projet présélectionné. Une tâche créée est affichée dans la liste ; les filtres sont réinitialisés pour qu’elle reste visible.

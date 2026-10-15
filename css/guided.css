@@ -16,3 +16,6 @@
 
 .guide-notes summary { cursor: pointer; padding: .7rem 0; }
 .guide-notes .field { margin: .8rem 0; }
+
+.guide-picker { padding: 1rem; border: 1px solid #ffffff26; border-radius: 12px; background: #ffffff04; }
+.guide-picker select { width: 100%; min-width: 0; }

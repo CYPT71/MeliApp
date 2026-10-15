@@ -8,6 +8,7 @@ export const bindFeatureActions = ({ root, registry, dispatch, getState }) => {
     const actionName = target.dataset.action;
     const found = findAction(registry, actionName);
     if (!found) return;
+    if (event.type === "submit") event.preventDefault();
 
     await found.handler({
       event,
@@ -18,11 +19,13 @@ export const bindFeatureActions = ({ root, registry, dispatch, getState }) => {
     });
   };
 
+  root.addEventListener("submit", listener);
   root.addEventListener("click", listener);
   root.addEventListener("input", listener);
   root.addEventListener("change", listener);
 
   return () => {
+    root.removeEventListener("submit", listener);
     root.removeEventListener("click", listener);
     root.removeEventListener("input", listener);
     root.removeEventListener("change", listener);

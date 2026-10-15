@@ -353,9 +353,10 @@ export const projectFeatures = {
         "projects.reopen": ({ target, dispatch }) => dispatch("project:reopen", { id: target.dataset.id }),
         "projects.filter-query": ({ event, target, dispatch }) => event.type === "change" ? dispatch("project:filter", { key: "query", value: target.value }) : undefined,
         "projects.filter-status": ({ event, target, dispatch }) => event.type === "change" ? dispatch("project:filter", { key: "statusFilter", value: target.value }) : undefined,
-        "projects.add-task": ({ target }) => {
+        "projects.add-task": async ({ target, dispatch }) => {
+          await dispatch("tasks:prepare-create", { projectId: target.dataset.id });
           location.hash = "#/tasks";
-          sessionStorage.setItem("meliapp:new-task-project", target.dataset.id ?? "");
+          requestAnimationFrame(() => document.querySelector('.task-quick-create [name="title"]')?.focus({ preventScroll: false }));
         }
       }
     }

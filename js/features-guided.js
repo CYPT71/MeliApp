@@ -49,7 +49,7 @@ export const guidedFeatures = {
     description: "Pas à pas",
     page: { path: "step-by-step", title: "Pas à pas", icon: "👣", order: 29 },
     state: { sessions: {}, activeTaskId: null },
-    when: ["guide:start", "guide:resume", "guide:pause", "guide:lost", "guide:smaller", "guide:note", "guide:toggle-notes", "guide:complete-step", "guide:finish", "app:start", "task:completed"],
+    when: ["guide:start", "guide:choose", "guide:resume", "guide:pause", "guide:lost", "guide:smaller", "guide:note", "guide:toggle-notes", "guide:complete-step", "guide:finish", "app:start", "task:completed"],
     run: ({ state, event, payload }) => {
       const feature = current(state);
       const sessions = { ...(feature.sessions ?? {}) };
@@ -57,13 +57,18 @@ export const guidedFeatures = {
         for (const [id, session] of Object.entries(sessions)) if (session.status === "active") sessions[id] = { ...session, status: "paused" };
         return update(state, { ...feature, sessions });
       }
+      if (event === "guide:choose") {
+        const taskId = payload?.taskId;
+        if (taskId && !tasks(state).some((task) => task.id === taskId && task.status !== "completed")) return state;
+        return update(state, { ...feature, selectedTaskId: taskId || "" });
+      }
       if (event === "guide:start") {
         const existing = sessions[payload?.taskId];
         const session = existing ?? createGuidedSession(state, payload?.taskId);
         if (!session) return state;
         if (feature.activeTaskId && sessions[feature.activeTaskId]?.status === "active" && feature.activeTaskId !== session.taskId) sessions[feature.activeTaskId] = { ...sessions[feature.activeTaskId], status: "paused" };
         sessions[session.taskId] = session;
-        return update(state, { ...feature, sessions, activeTaskId: session.taskId });
+        return update(state, { ...feature, sessions, activeTaskId: session.taskId, selectedTaskId: session.taskId });
       }
       if (event === "task:completed") {
         for (const [id, session] of Object.entries(sessions)) {
@@ -109,6 +114,20 @@ export const guidedFeatures = {
       render: ({ state }) => {
         const feature = current(state), session = activeSession(state);
         const root = node("div", { className: "guided-workspace stack" });
+        const available = tasks(state).filter((task) => task.status !== "completed");
+        if (available.length) {
+          const select = node("select", { name: "guidedTaskId", "aria-label": "Tâche à accompagner", "data-action": "guide.select-task" }, [node("option", { value: "", text: "Choisir une tâche existante…" })]);
+          for (const task of available) {
+            const parent = task.parentTaskId ? tasks(state).find((item) => item.id === task.parentTaskId) : null;
+            select.append(node("option", { value: task.id, text: `${parent ? parent.title + " → " : ""}${task.title}${feature.sessions?.[task.id] ? " · repère sauvegardé" : ""}` }));
+          }
+          const selected = feature.selectedTaskId ?? feature.activeTaskId;
+          select.value = available.some((task) => task.id === selected) ? selected : "";
+          root.append(node("section", { className: "guide-picker stack", "aria-label": "Choisir une tâche existante" }, [
+            node("label", { className: "field" }, [node("span", { text: "Tâche à accompagner" }), select]),
+            button("Commencer ou reprendre", "guide.start-selected", { className: "primary", ...(select.value ? {} : { disabled: "disabled" }) })
+          ]));
+        }
         if (!session) root.append(node("div", { className: "guided-empty stack" }, [
           node("h2", { text: "Une étape à la fois" }), node("p", { text: "Choisis une tâche pour garder un repère, faire une pause et retrouver le fil quand tu le souhaites." }),
           node("a", { href: "#/tasks", text: "Choisir une tâche" })
@@ -154,11 +173,17 @@ export const guidedFeatures = {
           }
           root.append(panel);
         }
-        const choices = tasks(state).filter((task) => task.status !== "completed" && !task.parentTaskId && task.id !== feature.activeTaskId);
-        if (choices.length) root.append(node("details", { className: "guide-task-picker" }, [node("summary", { text: "Choisir une autre activité" }), node("div", { className: "stack" }, choices.map((task) => button(`${feature.sessions?.[task.id] ? "Retrouver" : "Commencer"} · ${task.title}`, "guide.start", { "data-id": task.id }))) ]));
         return root;
       },
       actions: {
+        "guide.select-task": ({ event, target, dispatch }) => {
+          if (event.type === "change") return dispatch("guide:choose", { taskId: target.value });
+        },
+        "guide.start-selected": async ({ target, dispatch }) => {
+          const taskId = target.closest(".guide-picker")?.querySelector("select")?.value;
+          if (!taskId) return;
+          await dispatch("guide:start", { taskId });
+        },
         "guide.start": async ({ target, dispatch }) => { await dispatch("guide:start", { taskId: target.dataset.id }); await dispatch("item-inspector:close"); location.hash = "#/step-by-step"; },
         ...Object.fromEntries(["pause", "lost", "resume", "smaller"].map((action) => [`guide.${action}`, ({ target, dispatch }) => dispatch(`guide:${action}`, draft(target))])),
         "guide.toggle-notes": ({ event, dispatch }) => { if (event.type === "click") { event.preventDefault(); return dispatch("guide:toggle-notes"); } },
