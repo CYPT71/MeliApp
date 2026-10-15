@@ -8,6 +8,7 @@ import { dataP2pOverride } from "../features-data-p2p.js";
 import { adaptiveScheduleFeatures } from "../features-adaptive-schedule.js";
 import { calendarTaskFeatures } from "../features-calendar-tasks.js";
 import { taskWorkspaceFeatures } from "../features-tasks-workspace.js";
+import { taskContextFeatures } from "../features-task-context.js";
 import { projectFeatures } from "../features-projects.js";
 import { applyFeatureCategories, featureCategories } from "../feature-categories.js";
 
@@ -23,6 +24,7 @@ export const features = Object.freeze(
     ...adaptiveScheduleFeatures,
     ...calendarTaskFeatures,
     ...taskWorkspaceFeatures,
+    ...taskContextFeatures,
     ...projectFeatures
   }, featureCategories)
 );
