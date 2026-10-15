@@ -29,31 +29,60 @@ const node = (tag, attrs = {}, children = []) => {
 const button = (label, action, attrs = {}) => node("button", { type: "button", "data-action": action, ...attrs, text: label });
 
 const normalize = (state) => ({
-  connected: false, configured: true, playlists: [], tracks: [], devices: [], selectedDeviceId: null,
-  playback: null, loading: false, error: null, autoplayBlocked: false,
-  lowEnergy: "", focus: "", recovery: "", boss: "",
+  connected: false,
+  configured: true,
+  playlists: [],
+  tracks: [],
+  devices: [],
+  selectedDeviceId: null,
+  playback: null,
+  loading: false,
+  error: null,
+  playbackError: null,
+  autoplayBlocked: false,
+  lowEnergy: "",
+  focus: "",
+  recovery: "",
+  boss: "",
   ...featureState(state, "spotify", {})
 });
 
 const friendlyError = (message = "") => {
   if (!message) return "";
-  if (/SPOTIFY_CONFIGURATION_MISSING|client id|configuration/i.test(message)) return "La connexion Spotify n’est pas encore configurée pour cette version de MeliApp.";
-  if (/premium/i.test(message)) return "Le contrôle de lecture Spotify nécessite un compte Premium.";
+  if (/SPOTIFY_CONFIGURATION_MISSING|client id|configuration/i.test(message)) return "La connexion Spotify n’est pas configurée pour cette version de MeliApp.";
+  if (/invalid_client|invalid client/i.test(message)) return "Le Client ID Spotify configuré n’est pas accepté par Spotify.";
+  if (/redirect|uri/i.test(message)) return "Spotify refuse l’adresse de retour. Vérifie que https://cypt71.github.io/MeliApp/ est enregistrée exactement dans le Dashboard Spotify.";
+  if (/premium|403/i.test(message)) return "Spotify est connecté, mais cette fonction de lecture peut nécessiter Premium et une app autorisée en mode développement.";
   if (/active device|device not found|no active device/i.test(message)) return "Ouvre Spotify sur un appareil, lance une musique une fois, puis réessaie ici.";
   if (/expir|401/i.test(message)) return "La session Spotify a expiré. Reconnecte ton compte.";
   return String(message);
 };
 
-const chooseDeviceId = (current, requested = null) => requested || current.selectedDeviceId || current.devices.find((device) => device.active)?.id || current.devices[0]?.id || null;
+const chooseDeviceId = (current, requested = null) =>
+  requested || current.selectedDeviceId || current.devices.find((device) => device.active)?.id || current.devices[0]?.id || null;
+
+const settledValue = (result, fallback) => result.status === "fulfilled" ? result.value : fallback;
+const settledError = (result) => result.status === "rejected"
+  ? (result.reason instanceof Error ? result.reason.message : String(result.reason))
+  : null;
 
 const loadLibrary = async (services) => {
-  const [playlists, tracks, devices, playback] = await Promise.all([
+  const [playlistsResult, tracksResult, devicesResult, playbackResult] = await Promise.allSettled([
     services.spotify.listPlaylists?.() ?? [],
     services.spotify.listSavedTracks?.({ limit: 50 }) ?? [],
     services.spotify.listDevices?.() ?? [],
     services.spotify.getPlayback?.() ?? null
   ]);
-  return { playlists, tracks, devices, playback };
+
+  const playlists = settledValue(playlistsResult, []);
+  const tracks = settledValue(tracksResult, []);
+  const devices = settledValue(devicesResult, []);
+  const playback = settledValue(playbackResult, null);
+  const libraryError = settledError(playlistsResult) || settledError(tracksResult);
+  const playbackError = settledError(devicesResult) || settledError(playbackResult);
+
+  if (libraryError && !playlists.length && !tracks.length) throw new Error(libraryError);
+  return { playlists, tracks, devices, playback, playbackError };
 };
 
 const playbackSummary = (playback) => {
@@ -99,12 +128,14 @@ const render = ({ state }) => {
     node("span", { className: "connection-panel__icon", text: "🎵" }),
     node("div", { className: "stack compact" }, [
       node("strong", { text: current.connected ? "Spotify connecté" : "Connecte Spotify" }),
-      node("span", { className: "muted", text: current.connected ? "Lance tes playlists et tes titres aimés directement depuis MeliApp." : "MeliApp accède uniquement à ta bibliothèque et au contrôle de lecture après ton autorisation." })
+      node("span", { className: "muted", text: current.connected
+        ? "Lance tes playlists et tes titres aimés directement depuis MeliApp."
+        : "MeliApp accède uniquement à ta bibliothèque et au contrôle de lecture après ton autorisation." })
     ])
   ]));
 
   if (!current.connected) {
-    if (current.error) root.append(node("p", { className: "connection-message", text: friendlyError(current.error) }));
+    if (current.error) root.append(node("p", { className: "connection-message", role: "status", text: friendlyError(current.error) }));
     root.append(button("Connecter mon Spotify", "spotify.login", { className: "primary connection-button" }));
     return root;
   }
@@ -125,6 +156,7 @@ const render = ({ state }) => {
   );
 
   if (current.error) root.append(node("p", { className: "connection-message", role: "status", text: friendlyError(current.error) }));
+  if (current.playbackError) root.append(node("p", { className: "hint", role: "status", text: friendlyError(current.playbackError) }));
 
   const playlists = node("section", { className: "stack" }, [
     node("div", { className: "row row--between" }, [node("h3", { text: "Mes playlists" }), node("span", { className: "task-count", text: String(current.playlists.length) })])
@@ -146,29 +178,59 @@ export const spotifyFriendlyOverride = {
   spotify: {
     ...featureOverrides.spotify,
     description: "Spotify · bibliothèque et lecture",
-    state: { ...(featureOverrides.spotify.state ?? {}), connected: false, configured: true, playlists: [], tracks: [], devices: [], selectedDeviceId: null, playback: null, loading: false, error: null },
+    state: {
+      ...(featureOverrides.spotify.state ?? {}),
+      connected: false,
+      configured: true,
+      playlists: [],
+      tracks: [],
+      devices: [],
+      selectedDeviceId: null,
+      playback: null,
+      loading: false,
+      error: null,
+      playbackError: null
+    },
     when: [...new Set([...(featureOverrides.spotify.when ?? []), "spotify:refresh", "spotify:select-device", "spotify:play-playlist", "spotify:play-track", "spotify:resume", "spotify:pause"])],
     run: async ({ state, event, payload, services }) => {
       const current = normalize(state);
       if (event === "app:start") {
+        const configured = services.spotify?.isConfigured?.() !== false;
+        if (!configured) return setFeatureState(state, "spotify", { ...current, configured: false, connected: false });
         try {
-          const configured = services.spotify?.isConfigured?.() !== false;
-          if (!configured) return setFeatureState(state, "spotify", { ...current, configured: false, connected: false });
           const session = await services.spotify?.restore?.();
           if (!session) return setFeatureState(state, "spotify", { ...current, configured: true, connected: false, error: null });
           const library = await loadLibrary(services);
-          return setFeatureState(state, "spotify", { ...current, ...library, configured: true, connected: true, selectedDeviceId: library.playback?.deviceId ?? chooseDeviceId({ ...current, ...library }), loading: false, error: null });
+          return setFeatureState(state, "spotify", {
+            ...current,
+            ...library,
+            configured: true,
+            connected: true,
+            selectedDeviceId: library.playback?.deviceId ?? chooseDeviceId({ ...current, ...library }),
+            loading: false,
+            error: null
+          });
         } catch (error) {
-          return setFeatureState(state, "spotify", { ...current, loading: false, error: error instanceof Error ? error.message : String(error) });
+          return setFeatureState(state, "spotify", {
+            ...current,
+            configured: true,
+            connected: Boolean(services.spotify?.isConnected?.()),
+            loading: false,
+            error: error instanceof Error ? error.message : String(error)
+          });
         }
       }
       if (event === "spotify:login") {
-        try { await services.spotify?.login?.(); return state; }
-        catch (error) { return setFeatureState(state, "spotify", { ...current, error: error instanceof Error ? error.message : String(error) }); }
+        try {
+          await services.spotify?.login?.();
+          return setFeatureState(state, "spotify", { ...current, error: null });
+        } catch (error) {
+          return setFeatureState(state, "spotify", { ...current, error: error instanceof Error ? error.message : String(error) });
+        }
       }
       if (event === "spotify:logout") {
         await services.spotify?.logout?.();
-        return setFeatureState(state, "spotify", { ...current, connected: false, playlists: [], tracks: [], devices: [], playback: null, error: null });
+        return setFeatureState(state, "spotify", { ...current, connected: false, playlists: [], tracks: [], devices: [], playback: null, error: null, playbackError: null });
       }
       if (event === "spotify:select-device") return setFeatureState(state, "spotify", { ...current, selectedDeviceId: payload?.deviceId ?? null, error: null });
       if (event === "spotify:refresh") {
@@ -176,7 +238,7 @@ export const spotifyFriendlyOverride = {
           const library = await loadLibrary(services);
           return setFeatureState(state, "spotify", { ...current, ...library, connected: true, loading: false, selectedDeviceId: library.playback?.deviceId ?? chooseDeviceId({ ...current, ...library }), error: null });
         } catch (error) {
-          return setFeatureState(state, "spotify", { ...current, loading: false, error: error instanceof Error ? error.message : String(error) });
+          return setFeatureState(state, "spotify", { ...current, connected: Boolean(services.spotify?.isConnected?.()), loading: false, error: error instanceof Error ? error.message : String(error) });
         }
       }
       if (["spotify:play-playlist", "spotify:play-track", "spotify:resume", "spotify:pause"].includes(event)) {
@@ -187,9 +249,9 @@ export const spotifyFriendlyOverride = {
           if (event === "spotify:resume") await services.spotify?.resume?.(deviceId);
           if (event === "spotify:pause") await services.spotify?.pause?.(deviceId);
           const playback = await services.spotify?.getPlayback?.();
-          return setFeatureState(state, "spotify", { ...current, playback, selectedDeviceId: playback?.deviceId ?? deviceId, autoplayBlocked: false, error: null });
+          return setFeatureState(state, "spotify", { ...current, playback, selectedDeviceId: playback?.deviceId ?? deviceId, autoplayBlocked: false, error: null, playbackError: null });
         } catch (error) {
-          return setFeatureState(state, "spotify", { ...current, autoplayBlocked: true, error: error instanceof Error ? error.message : String(error) });
+          return setFeatureState(state, "spotify", { ...current, autoplayBlocked: true, playbackError: error instanceof Error ? error.message : String(error) });
         }
       }
       return featureOverrides.spotify.run({ state, event, payload, services });
