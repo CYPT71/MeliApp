@@ -199,6 +199,15 @@ const projectCard = (state, project) => {
     ])
   ]);
 
+  const available = taskItems(state).filter((task) => !task.parentTaskId && !linkedProjects(state, task).some((linked) => linked.id === project.id));
+  const picker = selectField({ label: "Tâche existante à ajouter", name: "taskId", options: [{ value: "", label: "Choisir une tâche…" }, ...available.map((task) => ({ value: task.id, label: `${task.title}${task.projectId ? " (changer de projet)" : ""}` }))] });
+  picker.querySelector("select").required = true;
+  picker.querySelector("select").setAttribute("aria-label", "Tâche existante à ajouter");
+  root.append(el("form", { className: "stack compact", "data-action": "projects.attach-task", "data-id": project.id }, [
+    picker, el("button", { type: "submit", text: "Ajouter une tâche existante", disabled: !available.length }),
+    el("small", { className: "muted", text: available.length ? "La tâche conserve ses détails et ses sous-tâches. Son rattachement manuel précédent sera remplacé." : "Toutes les tâches principales sont déjà liées à ce projet." })
+  ]));
+
   if (taskList.length) {
     const list = el("div", { className: "project-task-list stack compact" }, [el("strong", { text: "Tâches liées" })]);
     for (const task of taskList.slice(0, 8)) {
@@ -306,10 +315,22 @@ export const projectFeatures = {
   projects: {
     description: "Gestion complète des projets",
     state: { items: [], editingId: null, query: "", statusFilter: "active" },
-    when: ["project:create", "project:update", "project:delete", "project:edit-open", "project:edit-close", "project:filter", "project:complete", "project:reopen"],
+    when: ["project:create", "project:update", "project:delete", "project:edit-open", "project:edit-close", "project:filter", "project:complete", "project:reopen", "project:attach-task"],
     run: ({ state, event, payload }) => {
       const current = featureState(state, "projects", { items: [] });
       let items = [...(current.items ?? [])];
+      if (event === "project:attach-task") {
+        const tasks = featureState(state, "tasks", { items: [] });
+        const task = tasks.items.find((item) => item.id === payload?.taskId && !item.parentTaskId);
+        if (!task || !items.some((project) => project.id === payload?.projectId)) return state;
+        const linkedIds = new Set([task.id]);
+        let count;
+        do {
+          count = linkedIds.size;
+          for (const item of tasks.items) if (linkedIds.has(item.parentTaskId)) linkedIds.add(item.id);
+        } while (count !== linkedIds.size);
+        return setFeatureState(state, "tasks", { ...tasks, items: tasks.items.map((item) => linkedIds.has(item.id) ? { ...item, projectId: payload.projectId, updatedAt: new Date().toISOString() } : item) });
+      }
       if (event === "project:create") {
         const project = normalizeProject(payload);
         if (!project.title) return state;
@@ -353,6 +374,7 @@ export const projectFeatures = {
         "projects.reopen": ({ target, dispatch }) => dispatch("project:reopen", { id: target.dataset.id }),
         "projects.filter-query": ({ event, target, dispatch }) => event.type === "change" ? dispatch("project:filter", { key: "query", value: target.value }) : undefined,
         "projects.filter-status": ({ event, target, dispatch }) => event.type === "change" ? dispatch("project:filter", { key: "statusFilter", value: target.value }) : undefined,
+        "projects.attach-task": ({ event, target, dispatch }) => event.type === "submit" ? dispatch("project:attach-task", { projectId: target.dataset.id, taskId: formValue(target, "taskId") }) : undefined,
         "projects.add-task": async ({ target, dispatch }) => {
           await dispatch("tasks:prepare-create", { projectId: target.dataset.id });
           location.hash = "#/tasks";

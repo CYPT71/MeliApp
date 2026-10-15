@@ -19,6 +19,7 @@ import { quickSearchFeatures } from "../features-quick-search.js";
 import { localAiFeatures } from "../features-local-ai.js";
 import { itemPopupOverrides } from "../features-item-popup-overrides.js";
 import { guidedFeatures } from "../features-guided.js";
+import { metafocusFeatures } from "../features-metafocus.js";
 import { applyFeatureCategories, featureCategories } from "../feature-categories.js";
 
 export const features = Object.freeze(
@@ -43,7 +44,8 @@ export const features = Object.freeze(
     ...quickSearchFeatures,
     ...localAiFeatures,
     ...itemPopupOverrides,
-    ...guidedFeatures
+    ...guidedFeatures,
+    ...metafocusFeatures
   }, featureCategories)
 );
 

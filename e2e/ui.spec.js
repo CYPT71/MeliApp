@@ -113,7 +113,7 @@ test('creating a task from a project preselects its project', async ({ page }) =
   await page.getByRole('button', { name: 'Créer le projet', exact: true }).click();
   const card = page.locator('.project-card');
   await expect(card).toContainText('Projet UI');
-  await card.getByRole('button', { name: /Ajouter une tâche/ }).click();
+  await card.getByRole('button', { name: 'Ajouter une tâche', exact: true }).click();
   await expect(page).toHaveURL(/#\/tasks$/);
   await expect(page.getByRole('combobox', { name: 'Projet', exact: true })).toHaveValue(/.+/);
   await titleInput(page).fill('Tâche reliée');
@@ -134,4 +134,21 @@ test('pausing a guided task preserves the session after reloading', async ({ pag
   await expect(page.getByRole('heading', { name: 'Ton repère est sauvegardé' })).toBeVisible();
   await page.getByRole('button', { name: 'Reprendre cette étape', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Faire une pause', exact: true })).toBeVisible();
+});
+
+
+test('adding an existing task to a project persists without duplication', async ({ page }) => {
+  await openTasks(page);
+  await createTask(page, 'Tâche existante');
+  await page.goto('/#/projects');
+  await page.getByRole('textbox', { name: 'Nom du projet', exact: true }).fill('Projet existant');
+  await page.getByRole('button', { name: 'Créer le projet', exact: true }).click();
+  const card = page.locator('.project-card');
+  await card.getByRole('combobox', { name: 'Tâche existante à ajouter', exact: true }).selectOption({ label: 'Tâche existante' });
+  await expect(card.locator('.project-task-row')).toHaveCount(0);
+  await card.getByRole('button', { name: 'Ajouter une tâche existante', exact: true }).click();
+  await expect(card.locator('.project-task-row')).toContainText('Tâche existante');
+  await page.reload();
+  await expect(card.locator('.project-task-row')).toHaveCount(1);
+  await expect(card.locator('.project-task-row')).toContainText('Tâche existante');
 });
