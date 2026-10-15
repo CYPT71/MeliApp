@@ -83,7 +83,7 @@ const findTask = (state, id) => (featureState(state, "tasks", { items: [] }).ite
 
 const taskForm = (state, task) => {
   const defaultRange = featureState(state, "schedulePreferences", { defaultFlexRangeMinutes: 120 }).defaultFlexRangeMinutes ?? 120;
-  return node("form", { className: "inspector-form stack" }, [
+  return node("form", { className: "inspector-form stack", "data-submit-action": "item-inspector.save-task" }, [
     node("h2", { text: "Préciser la tâche" }),
     task.status !== "completed" ? node("button", { type: "button", "data-action": "guide.start", "data-id": task.id, text: "Commencer pas à pas" }) : null,
     field("Titre", "title", { value: task.title ?? "" }),
@@ -98,7 +98,7 @@ const taskForm = (state, task) => {
     ]),
     node("div", { className: "row inspector-actions" }, [
       node("button", { type: "button", "data-action": "item-inspector.close", text: "Annuler" }),
-      node("button", { type: "button", className: "primary", "data-action": "item-inspector.save-task", "data-id": task.id, text: "Enregistrer" })
+      node("button", { type: "submit", className: "primary", "data-action": "item-inspector.save-task", "data-id": task.id, text: "Enregistrer" })
     ])
   ]);
 };
@@ -113,7 +113,7 @@ const eventForm = (state, event) => {
   const category = categoryPresentation(event);
   const imported = (state.features?.tasks?.items ?? []).some((task) => task.sourceEventId === event.id);
   const when = `${new Date(event.start).toLocaleString("fr-FR")} → ${new Date(event.end).toLocaleString("fr-FR")}`;
-  return node("form", { className: "inspector-form stack" }, [
+  return node("form", { className: "inspector-form stack", "data-submit-action": "item-inspector.save-event" }, [
     node("h2", { text: "Préciser l’élément Outlook" }),
     node("div", { className: "inspector-summary stack compact" }, [
       node("strong", { text: event.title ?? "Élément Outlook" }),
@@ -137,7 +137,7 @@ const eventForm = (state, event) => {
     node("p", { className: "muted", text: "“Peut bouger de ±” indique jusqu’où MeliApp peut déplacer cet élément autour de son horaire. Le rendez-vous Outlook d’origine n’est pas déplacé tant que tu n’acceptes pas une proposition de planning." }),
     node("div", { className: "row inspector-actions" }, [
       node("button", { type: "button", "data-action": "item-inspector.close", text: "Annuler" }),
-      node("button", { type: "button", className: "primary", "data-action": "item-inspector.save-event", "data-key": key, text: "Enregistrer" })
+      node("button", { type: "submit", className: "primary", "data-action": "item-inspector.save-event", "data-key": key, text: "Enregistrer" })
     ])
   ]);
 };
@@ -145,10 +145,12 @@ const eventForm = (state, event) => {
 export const renderItemInspectorModal = (state) => {
   const current = featureState(state, "itemInspector", { open: false });
   if (!current.open) return null;
-  const content = current.type === "task" ? taskForm(state, findTask(state, current.id)) : eventForm(state, findEvent(state, current.key));
+  const item = current.type === "task" ? findTask(state, current.id) : findEvent(state, current.key);
+  if (!item) return null;
+  const content = current.type === "task" ? taskForm(state, item) : eventForm(state, item);
   if (!content) return null;
   return node("div", { className: "inspector-backdrop", role: "presentation", "data-action": "item-inspector.backdrop" }, [
-    node("dialog", { className: "item-inspector", open: true, "aria-modal": "true" }, [content])
+    node("dialog", { className: "item-inspector", "aria-modal": "true", "aria-label": current.type === "task" ? "Préciser la tâche" : "Préciser l’élément Outlook" }, [content])
   ]);
 };
 

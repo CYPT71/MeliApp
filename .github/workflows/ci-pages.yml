@@ -28,7 +28,16 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: package.json
+          cache-dependency-path: package-lock.json
+
+      - name: Install test dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser UI and accessibility tests
+        run: npm run test:e2e
 
       - name: Syntax checks
         run: npm run check
@@ -42,7 +51,7 @@ jobs:
       - name: Reject obvious committed secrets
         shell: bash
         run: |
-          if grep -RInE --exclude-dir=.git --exclude-dir=dist --exclude='*.md' '(client_secret\s*[:=]|sk-[A-Za-z0-9_-]{20,}|BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY)' .; then
+          if git grep -InE '(client_secret\s*[:=]|sk-[A-Za-z0-9_-]{20,}|BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY)' -- . ':!*.md'; then
             echo 'Potential secret detected in repository.'
             exit 1
           fi

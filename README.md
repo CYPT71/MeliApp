@@ -245,6 +245,59 @@ Au redémarrage, une activité restée ouverte revient en pause, prête à être
 
 MétaFocus propose des invitations réglables pendant que cet écran reste visible, une lecture locale du repère et une réflexion facultative. Les invitations et le journal local sont désactivés par défaut. Il ne détecte pas l’attention. Voir [les choix et limites MétaFocus](docs/METAFOCUS.md).
 
+## Tests UI et accessibilité avec Playwright
+
+Node.js 22 (comme la CI) et Python 3 sont nécessaires. Les dépendances npm
+servent uniquement aux tests ; l’application reste statique.
+
+```bash
+npm ci
+npx playwright install --with-deps chromium
+npm test
+npm run check
+npm run test:e2e
+```
+
+Les tests démarrent leur serveur sur `127.0.0.1:8081` et vérifient les parcours
+sur Chromium en format ordinateur et mobile : navigation, création, recherche,
+édition et persistance des tâches, découpage, projets, mode pas à pas et modales
+au clavier. Axe vérifie les règles WCAG automatisables sur chaque page.
+Les traces des échecs sont disponibles dans `test-results/`.
+
+Pour utiliser un Chromium déjà installé dans un environnement cloud :
+
+```bash
+PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium npm run test:e2e
+```
+
+`npm run test:e2e:ui` ouvre l’explorateur interactif de tests sur une machine
+avec interface graphique. Les connexions Outlook, Spotify et IA nécessitent
+leurs configurations et comptes ; les tests locaux ne valident pas ces services
+externes. L’émulation mobile Chromium ne remplace pas un test Safari sur iPhone.
+
+## Données locales, progression et mises à jour
+
+Les données produit restent dans IndexedDB (`meliapp`, store `state`, clé `app`).
+La sauvegarde attend la validation complète de la transaction. Une panne de
+stockage affiche un message et laisse les actions utilisables ; l’export JSON
+reste disponible dans Données. Une lecture initiale en échec ne remplace jamais
+la base par un état vide. Les brouillons de tâches, projets et éditeurs sont
+conservés séparément sous la clé `drafts`, sans identifiants de connexion.
+Les données restent propres au navigateur et à l’origine du site, sans serveur
+ni synchronisation automatique entre appareils.
+
+Le petit cap quotidien est réglable à 1, 3 ou 5 tâches. Les gains d’XP et les
+passages de niveau donnent un retour immédiat ; une tâche déjà récompensée ne
+rapporte pas une seconde fois de l’XP en étant rouverte puis terminée.
+
+Le build génère `dist/version.json` et un cache PWA identifié par l’empreinte du
+contenu. Après un déploiement GitHub Pages, l’app vérifie les versions au retour
+dans l’onglet, au rétablissement du réseau et toutes les cinq minutes pendant
+qu’elle est visible. Une bannière propose **Mettre à jour** ou **Plus tard**.
+L’actualisation sauvegarde les données et brouillons avant d’activer le nouveau
+Service Worker ; le cache précédent reste utilisé jusqu’à l’acceptation.
+Les simples commits GitHub sans déploiement ne provoquent pas d’actualisation.
+
 Dans Pas à pas, le sélecteur **Tâche à accompagner** reste visible en haut et propose les tâches en cours, y compris les sous-tâches. Le bouton **Commencer ou reprendre** ouvre le repère correspondant sans effacer les autres sessions.
 
 Pour créer une tâche, saisir son titre puis utiliser **Ajouter** ou Entrée. Les options conservent le titre saisi. Depuis un projet, **Ajouter une tâche** ouvre ce formulaire avec le projet présélectionné. Une tâche créée est affichée dans la liste ; les filtres sont réinitialisés pour qu’elle reste visible.

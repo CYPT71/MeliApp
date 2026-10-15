@@ -124,7 +124,7 @@ const subtaskProgress = (state, parentId) => {
   return { done, total: children.length };
 };
 
-const taskEditForm = (state, task) => el("form", { className: "task-inline-edit stack" }, [
+const taskEditForm = (state, task) => el("form", { className: "task-inline-edit stack", "data-submit-action": "tasks.edit-save" }, [
   el("label", { className: "field" }, [el("span", { text: "Titre" }), el("input", { name: "title", value: task.title })]),
   el("div", { className: "task-edit-grid" }, [
     el("label", { className: "field" }, [el("span", { text: "Durée" }), el("input", { name: "estimateMinutes", type: "number", min: 5, step: 5, value: task.estimateMinutes ?? 25 })]),
@@ -133,7 +133,7 @@ const taskEditForm = (state, task) => el("form", { className: "task-inline-edit 
   ]),
   el("div", { className: "stack compact" }, [el("span", { text: "Importance" }), importancePicker(task.importance)]),
   el("div", { className: "row" }, [
-    button("Enregistrer", "tasks.edit-save", { className: "primary", "data-id": task.id }),
+    button("Enregistrer", "tasks.edit-save", { className: "primary", type: "submit", "data-id": task.id }),
     button("Annuler", "tasks.edit-close")
   ])
 ]);
@@ -197,14 +197,14 @@ const taskCard = (state, task, { compact = false } = {}) => {
 
   if (split.manualFor === task.id) {
     const rewarded = Number(split.rewardedByParent?.[task.id] ?? 0);
-    details.append(el("form", { className: "split-form" }, [
+    details.append(el("form", { className: "split-form", "data-submit-action": "tasks.split-manual" }, [
       el("div", { className: "split-form__copy" }, [
         el("strong", { text: "Ajoute une petite étape" }),
         el("small", { className: "muted", text: rewarded < MAX_REWARDED_MANUAL_SPLITS ? `Découpage manuel : +${MANUAL_SPLIT_XP} XP` : "XP de découpage déjà au maximum pour cette tâche" })
       ]),
       el("div", { className: "split-form__controls" }, [
-        el("input", { name: "subtaskTitle", placeholder: "Ex. ouvrir le document", autocomplete: "off" }),
-        button("Ajouter", "tasks.split-manual", { className: "primary", "data-id": task.id })
+        el("input", { name: "subtaskTitle", "aria-label": "Titre de la sous-tâche", placeholder: "Ex. ouvrir le document", autocomplete: "off" }),
+        button("Ajouter", "tasks.split-manual", { className: "primary", type: "submit", "data-id": task.id })
       ])
     ]));
   }
@@ -504,7 +504,7 @@ export const taskWorkspaceFeatures = {
         "tasks.toggle-details": ({ target, dispatch }) => dispatch("tasks:toggle-details", { id: target.dataset.id }),
         "tasks.edit-open": ({ target, dispatch }) => dispatch("tasks:edit-open", { id: target.dataset.id }),
         "tasks.edit-close": ({ dispatch }) => dispatch("tasks:edit-close"),
-        "tasks.filter-query": ({ event, target, dispatch }) => event.type === "change" ? dispatch("tasks:filter", { key: "query", value: target.value }) : undefined,
+        "tasks.filter-query": ({ event, target, dispatch }) => event.type === "input" ? dispatch("tasks:filter", { key: "query", value: target.value }) : undefined,
         "tasks.filter-status": ({ event, target, dispatch }) => event.type === "change" ? dispatch("tasks:filter", { key: "statusFilter", value: target.value }) : undefined,
         "tasks.filter-project": ({ event, target, dispatch }) => event.type === "change" ? dispatch("tasks:filter", { key: "projectFilter", value: target.value }) : undefined
       }

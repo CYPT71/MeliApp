@@ -1,4 +1,4 @@
-const CACHE = "meliapp-shell-v37";
+const CACHE = "meliapp-shell-v38";
 const SHELL = [
   "./",
   "./index.html",
@@ -57,6 +57,9 @@ const SHELL = [
   "./js/domain/scheduling.js",
   "./js/domain/xp.js",
   "./js/services/storage.js",
+  "./js/services/drafts.js",
+  "./js/services/updates.js",
+  "./js/ui/rewards.js",
   "./js/services/notifications.js",
   "./js/services/oauth.js",
   "./js/services/outlook.js",
@@ -67,6 +70,7 @@ const SHELL = [
   "./js/services/index.js",
   "./js/ui/actions.js",
   "./js/ui/render.js",
+  "./js/ui/continuity.js",
   "./manifest.webmanifest"
 ];
 
@@ -75,16 +79,25 @@ self.addEventListener("install", (event) => {
 });
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key)))));
+  event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key.startsWith("meliapp-shell-") && key !== CACHE).map(key => caches.delete(key)))).then(() => self.clients.claim()));
 });
 
-self.addEventListener("fetch", (event) => {
-  if (event.request.method !== "GET") return;
-  event.respondWith(fetch(event.request)
-    .then((response) => {
-      const copy = response.clone();
-      caches.open(CACHE).then((cache) => cache.put(event.request, copy));
-      return response;
-    })
-    .catch(() => caches.match(event.request).then((cached) => cached ?? caches.match("./index.html"))));
+self.addEventListener("message", event => {
+  if (event.data?.type === "ACTIVATE_UPDATE") self.skipWaiting();
+});
+
+self.addEventListener("fetch", event => {
+  const url = new URL(event.request.url);
+  if (event.request.method !== "GET" || url.origin !== self.location.origin || url.pathname.endsWith("/version.json")) return;
+  event.respondWith((async () => {
+    // A versioned shell must remain coherent until the user accepts the update.
+    const cache = await caches.open(CACHE);
+    const cached = await cache.match(event.request, { ignoreSearch: true });
+    if (cached) return cached;
+    try { return await fetch(event.request); }
+    catch (error) {
+      if (event.request.mode === "navigate") return await cache.match("./index.html");
+      throw error;
+    }
+  })());
 });
