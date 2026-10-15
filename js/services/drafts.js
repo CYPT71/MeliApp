@@ -1,4 +1,4 @@
-export const DRAFT_FORMS = '.task-quick-create, .project-form, .inspector-form, .task-inline-edit, .split-form';
+export const DRAFT_FORMS = '.task-quick-create, .project-form, .inspector-form, .task-inline-edit, .split-form, .graph-category-form';
 const keyFor = (form, route) => {
   if (form.classList.contains('project-form')) return `${route}:project:${form.dataset.projectId ?? ''}`;
   if (form.classList.contains('task-quick-create')) return `${route}:task`;
@@ -41,7 +41,7 @@ export const createDraftService = ({ storage, onError }) => {
         }
       }
     },
-    async clearFor(event, route, payload) {
+    async clearFor(event, route, payload, state) {
       if (event === 'tasks:prepare-create') delete drafts['tasks:task'];
       else if (event === 'task:created' || event === 'tasks:create-reset') delete drafts[`${route}:task`];
       else if (event === 'project:create') delete drafts[`${route}:project:`];
@@ -52,6 +52,7 @@ export const createDraftService = ({ storage, onError }) => {
       } else if (event === 'tasks:edit-close' || event === 'task:updated') {
         for (const key of Object.keys(drafts)) if (key.startsWith(`${route}:task-inline-edit:`)) delete drafts[key];
       } else if (event === 'tasks:split-manual') delete drafts[`${route}:split-form:${payload?.id}`];
+      else if (event === 'mindmap:category' && !state?.features?.taskMindmap?.error) delete drafts[`${route}:graph-category-form:`];
       else if (event === 'data:reset') drafts = {};
       else return;
       await save();

@@ -1,4 +1,4 @@
-const CACHE = "meliapp-shell-v36";
+const CACHE = "meliapp-shell-v37";
 const SHELL = [
   "./",
   "./index.html",
@@ -7,6 +7,7 @@ const SHELL = [
   "./css/energy.css",
   "./css/connections.css",
   "./css/tasks.css",
+  "./css/mindmap.css",
   "./css/guided.css",
   "./js/features-guided.js",
   "./css/projects.css",
@@ -36,6 +37,10 @@ const SHELL = [
   "./js/features-task-context.js",
   "./js/features-calendar-tasks.js",
   "./js/features-tasks-workspace.js",
+  "./js/features-mindmap.js",
+  "./js/ui/mindmap.js",
+  "./js/domain/mindmap.js",
+  "./js/domain/task-links.js",
   "./js/features-projects.js",
   "./js/features-item-inspector.js",
   "./js/features-item-popup-overrides.js",

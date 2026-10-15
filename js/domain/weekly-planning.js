@@ -1,3 +1,4 @@
+import { isTaskBlocked } from "./task-links.js";
 import { buildAdaptiveDayPlan, energyPolicy } from "./adaptive-planning.js";
 
 const MINUTE = 60_000;
@@ -46,7 +47,7 @@ export const buildAdaptiveWeekPlan = ({
   const endClock = clockParts(dayEnd, [23, 0]);
   const horizon = clamp(Math.round(number(days, 7)), 1, 14);
   let pending = (tasks ?? [])
-    .filter((task) => task && task.status !== "completed" && !task.parentTaskId)
+    .filter((task) => task && task.status !== "completed" && !task.parentTaskId && !isTaskBlocked(task, tasks))
     .map((task) => ({ ...task, progress: 0, estimateMinutes: remainingMinutes(task) }));
   const blocks = [];
   const dayPlans = [];

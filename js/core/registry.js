@@ -1,3 +1,4 @@
+import { mindmapFeatures } from "../features-mindmap.js";
 import { features as baseFeatures } from "../features.js";
 import { advancedFeatures } from "../features-advanced.js";
 import { featureOverrides } from "../features-overrides.js";
@@ -43,7 +44,8 @@ export const features = Object.freeze(
     ...quickSearchFeatures,
     ...localAiFeatures,
     ...itemPopupOverrides,
-    ...guidedFeatures
+    ...guidedFeatures,
+    ...mindmapFeatures
   }, featureCategories)
 );
 
