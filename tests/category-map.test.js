@@ -4,19 +4,17 @@ import assert from "node:assert/strict";
 import { featureCategories, applyFeatureCategories } from "../js/feature-categories.js";
 
 const expected = {
-  calendar: ["microsoftAuth", "calendarSources", "outlookSync", "calendarView", "manualSync"],
+  calendar: ["microsoftAuth", "outlookSync", "calendarView", "manualSync"],
   tasks: ["taskWorkspace", "tasks", "taskDecomposition", "taskEditor"],
   projects: ["projects"],
   mindmap: ["taskMindmap"],
   day: ["adaptiveSchedule", "flow"],
   progress: ["game", "stats", "achievements"],
-  settings: ["spotify", "ai", "settings", "notifications", "install", "dataManagement", "diagnostics"]
+  settings: ["schedulePreferences", "spotify", "ai", "settings", "notifications", "install", "dataManagement", "diagnostics"]
 };
 
 test("production categories keep coherent features together", () => {
-  for (const [name, names] of Object.entries(expected)) {
-    assert.deepEqual(featureCategories[name].features, names);
-  }
+  for (const [name, names] of Object.entries(expected)) assert.deepEqual(featureCategories[name].features, names);
 });
 
 test("tasks and projects have their own top-level navigation tabs", () => {
