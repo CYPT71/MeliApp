@@ -1,13 +1,27 @@
 import { beginPkce, consumePkceCallback, refreshPublicClientToken } from "./oauth.js";
 
 const KEY = "meliapp:microsoft";
-const SCOPES = ["openid", "profile", "offline_access", "Calendars.ReadWrite"];
+const DEFAULT_SCOPES = ["openid", "profile", "offline_access", "Calendars.ReadWrite"];
 const CONFIG_ERROR = "OUTLOOK_CONFIGURATION_MISSING";
+const AUTH_MODE_ERROR = "OUTLOOK_AUTH_MODE_MUST_BE_DELEGATED";
 
-export const createOutlookService = ({ clientId, tenant = "common" }) => {
+const normalizeScopes = (scopes) => {
+  const unique = [...new Set((Array.isArray(scopes) ? scopes : DEFAULT_SCOPES).map((scope) => String(scope).trim()).filter(Boolean))];
+  for (const required of ["openid", "profile", "offline_access", "Calendars.ReadWrite"]) {
+    if (!unique.includes(required)) unique.push(required);
+  }
+  return unique;
+};
+
+export const createOutlookService = ({ clientId, tenant = "common", authMode = "delegated", scopes = DEFAULT_SCOPES }) => {
+  if (authMode !== "delegated") throw new Error(AUTH_MODE_ERROR);
+
   const normalizedClientId = String(clientId ?? "").trim();
+  const normalizedTenant = String(tenant ?? "common").trim() || "common";
+  const delegatedScopes = normalizeScopes(scopes);
   const configured = Boolean(normalizedClientId);
-  const tokenUrl = `https://login.microsoftonline.com/${tenant}/oauth2/v2.0/token`;
+  const authorizeUrl = `https://login.microsoftonline.com/${normalizedTenant}/oauth2/v2.0/authorize`;
+  const tokenUrl = `https://login.microsoftonline.com/${normalizedTenant}/oauth2/v2.0/token`;
   let token = sessionStorage.getItem(`${KEY}:access_token`);
   let refreshToken = sessionStorage.getItem(`${KEY}:refresh_token`);
 
@@ -28,26 +42,39 @@ export const createOutlookService = ({ clientId, tenant = "common" }) => {
 
   const restore = async () => {
     if (!configured) return null;
-    const callback = await consumePkceCallback({ tokenUrl, clientId: normalizedClientId, storageKey: KEY });
+    const callback = await consumePkceCallback({
+      tokenUrl,
+      clientId: normalizedClientId,
+      storageKey: KEY
+    });
     if (callback) saveTokens(callback);
     if (!token && refreshToken) {
       try {
-        saveTokens(await refreshPublicClientToken({ tokenUrl, clientId: normalizedClientId, refreshToken, scopes: SCOPES }));
+        saveTokens(await refreshPublicClientToken({
+          tokenUrl,
+          clientId: normalizedClientId,
+          refreshToken,
+          scopes: delegatedScopes
+        }));
       } catch {
         refreshToken = null;
         sessionStorage.removeItem(`${KEY}:refresh_token`);
       }
     }
-    return token ? { accessToken: token } : null;
+    return token ? { accessToken: token, authMode: "delegated" } : null;
   };
 
   const login = () => {
     assertConfigured();
     return beginPkce({
-      authorizeUrl: `https://login.microsoftonline.com/${tenant}/oauth2/v2.0/authorize`,
+      authorizeUrl,
       clientId: normalizedClientId,
       storageKey: KEY,
-      scopes: SCOPES
+      scopes: delegatedScopes,
+      extra: {
+        response_mode: "query",
+        prompt: "select_account"
+      }
     });
   };
 
@@ -60,7 +87,12 @@ export const createOutlookService = ({ clientId, tenant = "common" }) => {
 
   const renew = async () => {
     if (!configured || !refreshToken) return false;
-    const data = await refreshPublicClientToken({ tokenUrl, clientId: normalizedClientId, refreshToken, scopes: SCOPES });
+    const data = await refreshPublicClientToken({
+      tokenUrl,
+      clientId: normalizedClientId,
+      refreshToken,
+      scopes: delegatedScopes
+    });
     saveTokens(data);
     return Boolean(token);
   };
@@ -135,6 +167,15 @@ export const createOutlookService = ({ clientId, tenant = "common" }) => {
     listEvents,
     createFocusBlock,
     isConnected: () => Boolean(token),
-    isConfigured: () => configured
+    isConfigured: () => configured,
+    getAuthInfo: () => ({
+      mode: "delegated",
+      tenant: normalizedTenant,
+      scopes: [...delegatedScopes],
+      authorizeUrl,
+      tokenUrl,
+      usesClientSecret: false,
+      graphSubject: "/me"
+    })
   };
 };

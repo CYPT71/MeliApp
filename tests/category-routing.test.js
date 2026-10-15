@@ -14,21 +14,23 @@ test("production registry exposes the expected grouped navigation", () => {
   assert.deepEqual(byPath.mindmap.names, ["taskMindmap"]);
   assert.equal(byPath.mindmap.page.title, "Mindmap");
   assert.equal(byPath.mindmap.page.nav, true);
-  assert.ok(byPath.tasks.names.includes("projects"));
+  assert.deepEqual(byPath.projects.names, ["projects"]);
   assert.deepEqual(byPath.day.names, ["flow"]);
   assert.ok(byPath.progress.names.includes("game"));
   assert.ok(byPath.settings.names.includes("spotify"));
   assert.ok(byPath.settings.names.includes("ai"));
 });
 
-test("tasks route resolves task and project members without mindmap", () => {
-  const page = findPageByRoute(features, "tasks");
-  assert.ok(page);
-  assert.ok(page.names.includes("tasks"));
-  assert.ok(!page.names.includes("taskMindmap"));
-  assert.ok(page.names.includes("projects"));
+test("tasks and projects resolve to separate routes", () => {
+  const tasks = findPageByRoute(features, "tasks");
+  const projects = findPageByRoute(features, "projects");
+  assert.ok(tasks);
+  assert.ok(projects);
+  assert.ok(tasks.names.includes("tasks"));
+  assert.ok(!tasks.names.includes("taskMindmap"));
+  assert.ok(!tasks.names.includes("projects"));
+  assert.deepEqual(projects.names, ["projects"]);
 });
-
 
 test("mindmap has an independent route regardless of the selected task view", () => {
   const page = findPageByRoute(features, "#/mindmap");

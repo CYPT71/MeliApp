@@ -4,6 +4,7 @@ import { featureOverrides } from "../features-overrides.js";
 import { energyFriendlyOverride } from "../features-energy-friendly.js";
 import { connectionFriendlyOverride } from "../features-connections-friendly.js";
 import { taskWorkspaceFeatures } from "../features-tasks-workspace.js";
+import { projectFeatures } from "../features-projects.js";
 import { applyFeatureCategories, featureCategories } from "../feature-categories.js";
 
 export const features = Object.freeze(
@@ -13,7 +14,8 @@ export const features = Object.freeze(
     ...featureOverrides,
     ...energyFriendlyOverride,
     ...connectionFriendlyOverride,
-    ...taskWorkspaceFeatures
+    ...taskWorkspaceFeatures,
+    ...projectFeatures
   }, featureCategories)
 );
 
