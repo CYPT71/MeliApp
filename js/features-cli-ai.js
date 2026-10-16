@@ -1,3 +1,4 @@
+import { prepareBridgeWindow, prefersBridgeWindow } from "./services/bridge-window.js";
 import { connectionFriendlyOverride } from "./features-connections-friendly.js";
 import { normalizeSessionPreferences } from "./domain/session-preferences.js";
 import { validatePeerData } from "./services/peer-link.js";
@@ -21,7 +22,7 @@ const render = ({ state }) => {
   const powershell = `git clone https://github.com/CYPT71/MeliApp.git MeliApp-local\nif ($LASTEXITCODE -ne 0) { throw 'Clone impossible' }\nSet-Location MeliApp-local\nnpm.cmd ci\nif ($LASTEXITCODE -ne 0) { throw 'Installation impossible' }\nnpm.cmd run bridge -- --origin '${origin.replaceAll("'", "''")}'`;
   return node('section', { className: 'stack' }, [
     node('h2', { text: 'Claude / Codex · ordinateur et natel' }),
-    node('p', { text: 'Sur ton ordinateur : installe Node.js 20+, Git et le CLI Claude ou Codex, puis connecte-toi à ce CLI. Lance une commande ci-dessous. Pour une installation existante : ouvre MeliApp-local et relance npm run bridge -- --origin avec l’origine de cette app.' }),
+    node('p', { text: 'Sur ton ordinateur : installe Node.js 20+, Git et le CLI Claude ou Codex, puis connecte-toi à ce CLI. Lance une commande ci-dessous. Pour une installation existante : ouvre MeliApp-local, lance git pull --ff-only puis npm ci, et relance npm run bridge -- --origin avec l’origine de cette app.' }),
     node('details', {}, [node('summary', { text: 'Commande Shell (macOS / Linux)' }), node('pre', { className: 'cli-command', text: shell })]),
     node('details', {}, [node('summary', { text: 'Commande PowerShell (Windows)' }), node('pre', { className: 'cli-command', text: powershell })]),
     button('Relier mon natel en P2P · QR code', 'cli-ai.peer-host'),
@@ -31,7 +32,9 @@ const render = ({ state }) => {
     node('form', { 'data-submit-action': 'cli-ai.connect' }, [
       node('label', { className: 'stack', text: 'Adresse de la passerelle' }, [node('input', { name: 'url', type: 'url', value: current.endpoint ?? (location.port === '8766' ? location.origin : 'http://127.0.0.1:8766'), required: true })]),
       node('label', { className: 'stack', text: 'Code d’association du terminal' }, [node('input', { name: 'token', type: 'password', autocomplete: 'off', required: true })]),
-      node('button', { type: 'submit', text: 'Associer la passerelle', 'data-action': 'cli-ai.connect' })
+      node('button', { type: 'submit', text: 'Associer la passerelle', 'data-action': 'cli-ai.connect' }),
+      button('Connexion par fenêtre locale (Safari)', 'cli-ai.connect-window'),
+      node('small', { className:'muted',text:'Sur Safari, une fenêtre locale s’ouvre : garde-la ouverte pendant l’utilisation de l’IA. Sur iPhone, associe le PC par QR ; 127.0.0.1 désigne l’iPhone lui-même.' })
     ]),
     node('p', { role: 'status', text: current.remote ? 'IA reliée au PC par P2P.' : current.connected ? 'Passerelle associée pour cette session.' : 'Passerelle déconnectée.' }),
     (current.connected || current.peerReady) ? node('div', { className: 'stack' }, [
@@ -67,7 +70,7 @@ export const cliAiFeatures = {
   cliAi: {
     description: "Claude / Codex et liaison P2P",
     state: { connected: false, provider: 'codex', answer: '', error: null, message: null, sources: [], optimization: null },
-    when: ['app:start', 'cli-ai:connect', 'cli-ai:disconnect', 'cli-ai:ask', 'cli-ai:optimize', 'cli-ai:push', 'cli-ai:pull', 'cli-ai:peer-host', 'cli-ai:peer-join', 'cli-ai:peer-status', 'cli-ai:peer-data', 'cli-ai:peer-close', 'cli-ai:finished'],
+    when: ['app:start', 'cli-ai:connect', 'cli-ai:disconnect', 'cli-ai:ask', 'cli-ai:optimize', 'cli-ai:push', 'cli-ai:pull', 'cli-ai:peer-host', 'cli-ai:peer-join', 'cli-ai:peer-status', 'cli-ai:peer-data', 'cli-ai:peer-close', 'cli-ai:finished','cli-ai:connection-error'],
     run: async ({ state, event, payload, services, dispatch }) => {
       const current = state.features.cliAi ?? {}, service = services.cliAi;
       const update = change => ({ ...state, features: { ...state.features, cliAi: { ...current, ...change } } });
@@ -85,6 +88,7 @@ export const cliAiFeatures = {
         cliAiFeatures.cliAi.run({ state,event,payload,services }).then(result => dispatch('cli-ai:finished', { result:result.features.cliAi, forAssistant:payload.forAssistant, energy:state.features.energy?.value })).catch(error => dispatch('cli-ai:finished', { result:{ error:error.message }, energy:state.features.energy?.value }));
         return update({ busy:true,error:null,message:'Demande IA en cours… Tu peux continuer à utiliser l’app.' });
       }
+      if(event === 'cli-ai:connection-error') return update({error:payload.message});
       if (event === 'app:start') return update({ connected: service?.isConnected() ?? false, busy:false, peerReady:false, remote: false, qr: null, pairUrl: null, peerStatus: null });
       if (event === 'cli-ai:peer-status') return update({ peerStatus: payload.status, peerReady: payload.ready, remote: payload.ready && payload.role === 'phone', connected: payload.ready && payload.role === 'phone' || service?.isConnected(), ...(payload.ready ? { qr: null, pairUrl: null } : {}) });
       if (event === 'cli-ai:disconnect') { service.disconnect(); return update({ connected: false, message: null, error: null }); }
@@ -92,7 +96,7 @@ export const cliAiFeatures = {
         if (event === 'cli-ai:peer-host') { const invite = await services.peerLink.host(location.origin + location.pathname); return update({ qr: invite.qr, pairUrl: invite.url, peerStatus: 'QR prêt. Scanne-le sur ton natel.', error: null }); }
         if (event === 'cli-ai:peer-join') { await services.peerLink.join(payload); return update({ error: null }); }
         if (event === 'cli-ai:peer-close') { services.peerLink.disconnect(); return update({ qr: null, pairUrl: null }); }
-        if (event === 'cli-ai:connect') { await service.connect(payload.token, payload.url); return update({ connected: true, endpoint: service.endpoint(), error: null, message: 'Association réussie.' }); }
+        if (event === 'cli-ai:connect') { await service.connect(payload.token, payload.url, payload.transport); return update({ connected: true, endpoint: service.endpoint(), error: null, message: 'Association réussie.' }); }
         if (event === 'cli-ai:push') {
           services.peerLink.push();
           return update({ error: null, message: 'Données envoyées directement à l’autre appareil.' });
@@ -139,7 +143,20 @@ export const cliAiFeatures = {
     ui: { order: 2.5, render, actions: {
       'cli-ai.peer-host': ({ event, dispatch }) => event.type === 'click' && dispatch('cli-ai:peer-host'),
       'cli-ai.peer-close': ({ event, dispatch }) => event.type === 'click' && dispatch('cli-ai:peer-close'),
-      'cli-ai.connect': ({ event, target, dispatch }) => { if (event.type !== 'submit') return; const data = new FormData(target.form); return dispatch('cli-ai:connect', { token: data.get('token'), url: data.get('url') }); },
+      'cli-ai.connect': ({ event, target, dispatch }) => {
+        if (event.type !== 'submit') return;
+        const data = new FormData(target.form), transport = prefersBridgeWindow() ? 'window' : 'http';
+        try { if(transport === 'window') prepareBridgeWindow(data.get('url')); }
+        catch(error){return dispatch('cli-ai:connection-error',{message:error.message});}
+        return dispatch('cli-ai:connect',{token:data.get('token'),url:data.get('url'),transport});
+      },
+      'cli-ai.connect-window': ({ event,target,dispatch }) => {
+        if(event.type !== 'click' || !target.form.reportValidity()) return;
+        const data=new FormData(target.form);
+        try {prepareBridgeWindow(data.get('url'));}
+        catch(error){return dispatch('cli-ai:connection-error',{message:error.message});}
+        return dispatch('cli-ai:connect',{token:data.get('token'),url:data.get('url'),transport:'window'});
+      },
       'cli-ai.disconnect': ({ event, dispatch }) => event.type === 'click' && dispatch('cli-ai:disconnect'),
       'cli-ai.ask': ({ event, target, dispatch }) => { if (event.type !== 'submit') return; const data = new FormData(target.form); target.disabled = true; target.textContent = 'Demande en cours…'; return dispatch('cli-ai:ask', { provider: data.get('provider'), question: data.get('question') }); },
       'cli-ai.optimize': async ({ event, target, dispatch }) => { if (event.type !== 'click') return; const data = new FormData(target.form); target.disabled = true; target.textContent = 'Optimisation en cours…'; await dispatch('cli-ai:optimize', { provider: data.get('provider') }); return dispatch('adaptive-plan:refresh'); },

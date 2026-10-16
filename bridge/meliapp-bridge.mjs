@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { connectPage } from "./connect-page.mjs";
 import http from 'node:http';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { spawn } from 'node:child_process';
@@ -35,8 +36,21 @@ export const createBridge = ({ origin, token = randomBytes(24).toString('hex'), 
   const allowed = new URL(origin).origin;
   let busy = false;
   const server = http.createServer(async (req, res) => {
-    if (req.headers.origin !== allowed) { res.writeHead(403).end(); return; }
-    res.setHeader('Access-Control-Allow-Origin', allowed);
+    const localOrigin = `http://${req.headers.host}`;
+    let host;
+    try { host = new URL(localOrigin).hostname; } catch { res.writeHead(403).end(); return; }
+    if (!['127.0.0.1','localhost','[::1]'].includes(host)) { res.writeHead(403).end(); return; }
+    if (req.headers.origin && req.headers.origin !== allowed && req.headers.origin !== localOrigin) { res.writeHead(403).end(); return; }
+    if (req.method === 'GET' && req.url === '/connect') {
+      const nonce = randomBytes(24).toString('base64');
+      res.writeHead(200, {
+        'Content-Type':'text/html; charset=utf-8', 'Cache-Control':'no-store',
+        'Referrer-Policy':'no-referrer',
+        'Content-Security-Policy':`default-src 'none'; script-src 'nonce-${nonce}'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'`
+      }).end(connectPage(allowed,nonce));
+      return;
+    }
+    if (req.headers.origin) res.setHeader('Access-Control-Allow-Origin', req.headers.origin);
     res.setHeader('Vary', 'Origin');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');

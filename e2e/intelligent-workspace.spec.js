@@ -1,3 +1,4 @@
+import { connectPage } from "../bridge/connect-page.mjs";
 import { readFile } from 'node:fs/promises';
 import { test, expect } from '@playwright/test';
 const seed = async page => {
@@ -70,8 +71,9 @@ test('saved energy persists beyond expiry and recalculates work sessions after a
 
 test('CLI pairing, IndexedDB RAG and validated AI optimization use the real UI', async ({ page }) => {
   let prompt = '';
-  await page.route('http://127.0.0.1:8766/**', async route => {
+  await page.context().route('http://127.0.0.1:8766/**', async route => {
     const request = route.request();
+    if(request.url().endsWith('/connect'))return route.fulfill({body:connectPage('http://127.0.0.1:8081','test-nonce'),contentType:'text/html'});
     const headers = { 'access-control-allow-origin': 'http://127.0.0.1:8081', 'access-control-allow-headers':'Authorization, Content-Type', 'access-control-allow-methods':'GET, POST, OPTIONS' };
     if (request.method()==='OPTIONS') return route.fulfill({ status:204,headers });
     if (request.url().endsWith('/health')) return route.fulfill({ json:{ app:'meliapp-cli',version:1 },headers });
@@ -136,7 +138,8 @@ export class Peer extends Emitter {
     });
   };
   await mockTransport(page.context());
-  await page.route('http://127.0.0.1:8766/**',route=>{
+  await page.context().route('http://127.0.0.1:8766/**',route=>{
+    if(route.request().url().endsWith('/connect'))return route.fulfill({body:connectPage('http://127.0.0.1:8081','test-nonce'),contentType:'text/html'});
     const headers={'access-control-allow-origin':'http://127.0.0.1:8081','access-control-allow-headers':'Authorization, Content-Type','access-control-allow-methods':'GET, POST, OPTIONS'};
     if(route.request().method()==='OPTIONS')return route.fulfill({status:204,headers});
     return route.fulfill({json:route.request().url().endsWith('/health')?{app:'meliapp-cli'}:{text:'Conseil transmis par le PC en P2P.'},headers});

@@ -406,3 +406,35 @@ réouverture hors ligne après coupure du PC. Ils ne garantissent ni l’authent
 réelle aux fournisseurs ni le passage de tous les réseaux distants.
 
 Le Chromium géré de l’environnement cloud impose `WebRtcIPHandling=disable_non_proxied_udp`. La signalisation native a été observée, mais aucun candidat ICE n’est émis : la liaison WebRTC réelle n’est donc pas validée ici. Vérifier ce point sur les appareils cibles, sans modifier cette politique gérée.
+
+### Connexion IA depuis Safari
+
+Safari utilise automatiquement une **fenêtre locale** pour l’association au CLI.
+Cette fenêtre effectue les appels à la passerelle depuis sa propre origine HTTP ;
+l’app HTTPS échange avec elle par `postMessage`, sans appel HTTP direct depuis
+la page HTTPS. Les deux côtés vérifient l’origine et la fenêtre correspondante,
+et les appels API conservent le code d’association. Le code n’apparaît pas dans
+l’URL. La page locale n’enregistre aucune donnée et refuse d’être intégrée dans
+une iframe. La passerelle reste limitée à l’interface de boucle locale.
+
+Pour mettre à jour une passerelle déjà installée : arrêter son terminal avec
+Ctrl+C, puis lancer dans le dossier `MeliApp-local` :
+
+```sh
+git pull --ff-only
+npm ci
+npm run bridge -- --origin https://ORIGINE-DE-MELIAPP
+```
+
+Retourner dans **Réglages → Claude / Codex**, saisir le nouveau code du terminal
+et cliquer **Associer la passerelle**. Autoriser la fenêtre surgissante et la
+garder ouverte. Le bouton **Connexion par fenêtre locale (Safari)** permet de
+choisir ce transport manuellement, y compris sur un autre navigateur qui bloque
+l’accès HTTP direct. Si la fenêtre a été fermée ou que la passerelle a redémarré,
+refaire l’association. Sur iPhone, utiliser le QR P2P généré par l’app du PC :
+`127.0.0.1` sur le téléphone désigne le téléphone, pas l’ordinateur.
+
+Les tests reproduisent un accès direct bloqué et vérifient l’association, une
+réponse CLI, la fermeture de la fenêtre et le refus d’une fenêtre non autorisée.
+La détection Safari est simulée ; le moteur WebKit reste indisponible dans cet
+environnement cloud (téléchargement refusé).

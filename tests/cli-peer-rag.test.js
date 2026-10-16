@@ -1,3 +1,4 @@
+import { get } from "node:http";
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
@@ -79,4 +80,17 @@ test('AI session recommendations are accepted inside user limits and rejected ou
   const valid=await run();assert.deepEqual(valid.features.cliAi.optimization.session,{workMinutes:20,breakMinutes:18});
   response.session.workMinutes=90;
   const invalid=await run();assert.match(invalid.features.cliAi.error,/hors de tes limites/);assert.equal(invalid.features.cliAi.optimization,undefined);
+});
+test('Safari bridge serves a no-cache local connection page while keeping authenticated API and host checks',async t=>{
+  const {server,token}=createBridge({origin:'https://meliapp.example'});
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));t.after(()=>new Promise(resolve=>server.close(resolve)));
+  const endpoint=`http://127.0.0.1:${server.address().port}`;
+  const page=await fetch(endpoint+'/connect');assert.equal(page.status,200);
+  assert.match(page.headers.get('content-security-policy'),/frame-ancestors 'none'/);
+  assert.equal(page.headers.get('cache-control'),'no-store');
+  const html=await page.text();assert.match(html,/event.source!==parent/);assert.match(html,/event.origin!==allowedOrigin/);assert.ok(!html.includes(token));
+  assert.equal((await fetch(endpoint+'/health')).status,401);
+  assert.equal((await fetch(endpoint+'/health',{headers:{Origin:endpoint,Authorization:`Bearer ${token}`}})).status,200);
+  assert.equal((await fetch(endpoint+'/connect',{headers:{Origin:'https://untrusted.example'}})).status,403);
+  assert.equal(await new Promise((resolve,reject)=>get(endpoint+'/connect',{headers:{Host:'attacker.example'}},response=>{response.resume();resolve(response.statusCode);}).on('error',reject)),403);
 });

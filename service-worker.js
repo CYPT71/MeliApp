@@ -1,5 +1,6 @@
-const CACHE = "meliapp-shell-v39";
+const CACHE = "meliapp-shell-v40";
 const SHELL = [
+  "./js/services/bridge-window.js",
   "./js/domain/planning-eligibility.js",
   "./js/domain/planning-inputs.js",
   "./js/domain/rag.js",
