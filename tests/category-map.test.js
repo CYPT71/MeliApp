@@ -10,6 +10,7 @@ const expected = {
   mindmap: ["taskMindmap"],
   day: ["sessionPreferences", "adaptiveSchedule", "flow"],
   progress: ["game", "stats", "achievements"],
+  devices: ["deviceLink"],
   settings: ["microsoftAuth", "localAi", "cliAi", "schedulePreferences", "quickSearch", "spotify", "ai", "settings", "notifications", "install", "dataManagement", "diagnostics"]
 };
 
@@ -18,8 +19,8 @@ test("production categories keep coherent features together", () => {
 });
 
 test("tasks and projects have their own top-level navigation tabs", () => {
-  assert.equal(Object.keys(featureCategories).length, 7);
-  assert.deepEqual(Object.keys(featureCategories), ["calendar", "tasks", "projects", "mindmap", "day", "progress", "settings"]);
+  assert.equal(Object.keys(featureCategories).length, 8);
+  assert.deepEqual(Object.keys(featureCategories), ["calendar", "tasks", "projects", "mindmap", "day", "progress", "devices", "settings"]);
   assert.equal(featureCategories.tasks.path, "tasks");
   assert.equal(featureCategories.tasks.title, "Tâches");
   assert.equal(featureCategories.projects.path, "projects");

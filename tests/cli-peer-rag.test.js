@@ -47,7 +47,7 @@ test('QR pairing transfers only user data, forwards AI directly and preserves re
   const load=async()=>({Peer:MockPeer,QRCode:{toDataURL:async url=>'data:image/png;base64,MOCK'}});
   const host=createPeerLink({load}),phone=createPeerLink({load});t.after(()=>{host.disconnect();phone.disconnect();});
   let received,call;
-  host.configure({getData:()=>shareableData(fixture()),prompt:async(provider,prompt)=>{call={provider,prompt};return 'Conseil du PC';}});
+  host.configure({getData:()=>shareableData(fixture()),aiAvailable:()=>true,prompt:async(provider,prompt)=>{call={provider,prompt};return 'Conseil du PC';}});
   phone.configure({getData:()=>shareableData(fixture()),onData:async data=>{received=data;}});
   const invite=await host.host('https://meliapp.example/app/');
   const data=JSON.parse(decodeURIComponent(new URL(invite.url).hash.slice(6)));
@@ -93,4 +93,36 @@ test('Safari bridge serves a no-cache local connection page while keeping authen
   assert.equal((await fetch(endpoint+'/health',{headers:{Origin:endpoint,Authorization:`Bearer ${token}`}})).status,200);
   assert.equal((await fetch(endpoint+'/connect',{headers:{Origin:'https://untrusted.example'}})).status,403);
   assert.equal(await new Promise((resolve,reject)=>get(endpoint+'/connect',{headers:{Host:'attacker.example'}},response=>{response.resume();resolve(response.statusCode);}).on('error',reject)),403);
+});
+test('QR creation does not wait for signaling and data-only pairing does not claim an active AI',async t=>{
+  const load=async()=>({Peer:MockPeer,QRCode:{toDataURL:async()=>'data:image/png;base64,MOCK'}});
+  const host=createPeerLink({load}),phone=createPeerLink({load});t.after(()=>{host.disconnect();phone.disconnect();});
+  let received,aiAvailable=false;
+  host.configure({getData:()=>shareableData(fixture()),aiAvailable:()=>aiAvailable,prompt:async()=>'ok'});
+  phone.configure({getData:()=>shareableData(fixture()),onData:async data=>{received=data;}});
+  const invite=await host.host('https://meliapp.example/');assert.ok(invite.qr);
+  await waitFor(()=>peers.size>=1);
+  const data=JSON.parse(decodeURIComponent(new URL(invite.url).hash.slice(6)));await phone.join(data);
+  await waitFor(()=>phone.isConnected()&&received);
+  assert.equal(phone.isRemote(),false);await assert.rejects(phone.prompt('codex','test'),/Aucune IA/);
+  aiAvailable=true;host.refreshCapabilities();await waitFor(()=>phone.isRemote());
+  assert.equal(await phone.prompt('codex','test'),'ok');
+});
+test('a QR remains available even if the signaling service rejects connection',async t=>{
+  class UnavailablePeer extends EventEmitter{constructor(id){super();queueMicrotask(()=>this.emit('error',new Error('Service inaccessible')));}destroy(){this.emit('close');}}
+  const status=[];
+  const service=createPeerLink({load:async()=>({Peer:UnavailablePeer,QRCode:{toDataURL:async()=>'data:image/png;base64,OFFLINE'}})});
+  service.configure({onStatus:value=>status.push(value.status)});t.after(()=>service.disconnect());
+  const invite=await service.host('https://meliapp.example/');assert.ok(invite.qr);
+  await waitFor(()=>status.some(value=>value.includes('QR affiché, mais connexion indisponible')));
+});
+import { peerInviteFromUrl } from '../js/services/peer-link.js';
+test('scanner accepts only current MeliApp invites and rejects foreign sites, invalid and expired tokens',()=>{
+  const now=Date.now(),invite={id:'meliapp-'+'a'.repeat(48),secret:'b'.repeat(48),expiresAt:now+60000};
+  const make=(origin='https://meliapp.example/app/',data=invite)=>origin+'#pair='+encodeURIComponent(JSON.stringify(data));
+  assert.deepEqual(peerInviteFromUrl(make(),'https://meliapp.example/app/',now),invite);
+  assert.throws(()=>peerInviteFromUrl(make('https://attacker.example/'),'https://meliapp.example/app/',now),/cette app/);
+  assert.throws(()=>peerInviteFromUrl(make('https://meliapp.example/another/'),'https://meliapp.example/app/',now),/cette app/);
+  assert.throws(()=>peerInviteFromUrl(make(undefined,{...invite,expiresAt:now-1}),'https://meliapp.example/app/',now),/expiré/);
+  assert.throws(()=>peerInviteFromUrl(make(undefined,{...invite,secret:'bad'}),'https://meliapp.example/app/',now),/invalide/);
 });

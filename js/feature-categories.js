@@ -14,6 +14,7 @@ export const featureCategories = Object.freeze({
   mindmap: { id: "mindmap", path: "mindmap", title: "Mindmap", icon: "🌳", order: 27, features: ["taskMindmap"] },
   day: { id: "day", path: "day", title: "Journée", icon: "🧭", order: 30, features: ["sessionPreferences", "adaptiveSchedule", "flow"] },
   progress: { id: "progress", path: "progress", title: "Progression", icon: "🏆", order: 40, features: ["game", "stats", "achievements"] },
+  devices: { id:"devices",path:"devices",title:"Appareils",icon:"📱",order:45,features:["deviceLink"] },
   settings: {
     id: "settings", path: "settings", title: "Réglages & connexions", icon: "⚙️", order: 50,
     features: ["microsoftAuth", "localAi", "cliAi", "schedulePreferences", "quickSearch", "spotify", "ai", "settings", "notifications", "install", "dataManagement", "diagnostics"]

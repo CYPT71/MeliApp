@@ -1,3 +1,4 @@
+import { scanPairingQr } from "./services/qr-scanner.js";
 import { prepareBridgeWindow, prefersBridgeWindow } from "./services/bridge-window.js";
 import { connectionFriendlyOverride } from "./features-connections-friendly.js";
 import { normalizeSessionPreferences } from "./domain/session-preferences.js";
@@ -14,6 +15,23 @@ const node = (tag, attrs = {}, children = []) => {
   element.append(...children.filter(Boolean)); return element;
 };
 const button = (text, action) => node('button', { type: 'button', text, 'data-action': action });
+const renderDevices = state => {
+  const current=state.features.cliAi ?? {};
+  return node('section',{className:'stack device-link-card'},[
+    node('h2',{text:'Relier mes appareils · sans installation'}),
+    node('p',{text:'Ouvre MeliApp sur le Mac et sur le natel. Sur le Mac, affiche le QR puis scanne-le avec l’appareil photo du natel. Aucune commande ni connexion IA n’est nécessaire pour échanger tes données.'}),
+    node('div',{className:'row'},[button(current.qr?'Regénérer le QR code':'Afficher le QR code','cli-ai.peer-host'),button('Scanner un QR code','cli-ai.scan')]),
+    current.qr ? node('div', { className: 'stack' }, [node('img', { src: current.qr, width: 320, height: 320, alt: 'QR code d’association P2P au téléphone' }), node('a', { href: current.pairUrl, text: 'Lien d’association (valable 10 minutes)', referrerpolicy: 'no-referrer' })]) : null,
+    current.peerStatus ? node('p', { role: 'status', text: current.peerStatus }) : null,
+    node('p', { className: 'hint', text: 'Scanne le QR pour relier les deux apps directement, sans serveur de données. Les deux appareils doivent être ouverts pour échanger ; certains réseaux distants bloquent le P2P. Tes données reçues et ton planning local restent utilisables dans le navigateur, même PC éteint. L’IA du PC attend sa reconnexion.' }),
+    current.peerReady ? node('div',{className:'stack'},[
+      node('p',{role:'status',text:current.remote?'Appareils reliés · IA disponible sur l’autre appareil.':'Appareils reliés. Le partage de données fonctionne indépendamment de l’IA.'}),
+      node('div',{className:'row'},[button('Partager mes données','cli-ai.push'),button('Récupérer les données partagées','cli-ai.pull'),button('Fermer la liaison P2P','cli-ai.peer-close')])
+    ]):null,
+    current.peerError ? node('p',{role:'alert',className:'error',text:current.peerError}):null,
+    node('small',{className:'muted',text:'Les données sont enregistrées dans le navigateur. L’ajout à l’écran d’accueil est facultatif. Claude/Codex nécessite une IA réellement configurée ; un QR ne l’active pas automatiquement.'})
+  ]);
+};
 const render = ({ state }) => {
   const current = state.features.cliAi ?? {};
   const origin = location.origin;
@@ -21,14 +39,11 @@ const render = ({ state }) => {
   const shell = `git clone https://github.com/CYPT71/MeliApp.git MeliApp-local && cd MeliApp-local && npm ci && npm run bridge -- --origin ${shellOrigin}`;
   const powershell = `git clone https://github.com/CYPT71/MeliApp.git MeliApp-local\nif ($LASTEXITCODE -ne 0) { throw 'Clone impossible' }\nSet-Location MeliApp-local\nnpm.cmd ci\nif ($LASTEXITCODE -ne 0) { throw 'Installation impossible' }\nnpm.cmd run bridge -- --origin '${origin.replaceAll("'", "''")}'`;
   return node('section', { className: 'stack' }, [
-    node('h2', { text: 'Claude / Codex · ordinateur et natel' }),
-    node('p', { text: 'Sur ton ordinateur : installe Node.js 20+, Git et le CLI Claude ou Codex, puis connecte-toi à ce CLI. Lance une commande ci-dessous. Pour une installation existante : ouvre MeliApp-local, lance git pull --ff-only puis npm ci, et relance npm run bridge -- --origin avec l’origine de cette app.' }),
+    renderDevices(state),
+    node('h2', { text: 'IA Claude / Codex · option avancée' }),
+    node('p', { text: 'MeliApp et le partage entre appareils fonctionnent sans installation. Cette option IA est facultative et nécessite Node.js 20+, Git et un CLI Claude ou Codex installé et connecté sur le Mac. Pour une installation existante : ouvre MeliApp-local, lance git pull --ff-only puis npm ci, et relance npm run bridge -- --origin avec l’origine de cette app.' }),
     node('details', {}, [node('summary', { text: 'Commande Shell (macOS / Linux)' }), node('pre', { className: 'cli-command', text: shell })]),
     node('details', {}, [node('summary', { text: 'Commande PowerShell (Windows)' }), node('pre', { className: 'cli-command', text: powershell })]),
-    button('Relier mon natel en P2P · QR code', 'cli-ai.peer-host'),
-    current.qr ? node('div', { className: 'stack' }, [node('img', { src: current.qr, width: 320, height: 320, alt: 'QR code d’association P2P au téléphone' }), node('a', { href: current.pairUrl, text: 'Lien d’association (valable 10 minutes)', referrerpolicy: 'no-referrer' })]) : null,
-    current.peerStatus ? node('p', { role: 'status', text: current.peerStatus }) : null,
-    node('p', { className: 'hint', text: 'Scanne le QR pour relier les deux apps directement, sans serveur de données. Les deux appareils doivent être ouverts pour échanger ; certains réseaux distants bloquent le P2P. Installe l’app sur ton natel : tes données reçues et ton planning local restent utilisables PC éteint. L’IA du PC attend sa reconnexion.' }),
     node('form', { 'data-submit-action': 'cli-ai.connect' }, [
       node('label', { className: 'stack', text: 'Adresse de la passerelle' }, [node('input', { name: 'url', type: 'url', value: current.endpoint ?? (location.port === '8766' ? location.origin : 'http://127.0.0.1:8766'), required: true })]),
       node('label', { className: 'stack', text: 'Code d’association du terminal' }, [node('input', { name: 'token', type: 'password', autocomplete: 'off', required: true })]),
@@ -38,14 +53,14 @@ const render = ({ state }) => {
     ]),
     node('p', { role: 'status', text: current.remote ? 'IA reliée au PC par P2P.' : current.connected ? 'Passerelle associée pour cette session.' : 'Passerelle déconnectée.' }),
     (current.connected || current.peerReady) ? node('div', { className: 'stack' }, [
-      node('form', { 'data-submit-action': 'cli-ai.ask' }, [
+      current.connected ? node('form', { 'data-submit-action': 'cli-ai.ask' }, [
         node('label', { className: 'stack', text: 'CLI à utiliser' }, [node('select', { name: 'provider' }, [node('option', { value: 'codex', text: 'Codex', selected: current.provider !== 'claude' }), node('option', { value: 'claude', text: 'Claude', selected: current.provider === 'claude' })])]),
         node('label', { className: 'stack', text: 'Ta question' }, [node('textarea', { name: 'question', maxlength: 4000, placeholder: 'Comment organiser ma semaine avec mon énergie actuelle ?' })]),
         node('button', { type: 'submit', text: 'Demander avec mon contexte', disabled:current.busy, 'data-action': 'cli-ai.ask' }),
         node('button', { type:'button', text:'Optimiser mon agenda avec l’IA', disabled:current.busy, 'data-action':'cli-ai.optimize' })
-      ]),
+      ]) : node('p',{className:'hint',text:'Le partage est actif. Pour utiliser Claude/Codex, configure une IA sur le Mac ; aucun CLI n’est requis pour tes données.'}),
       node('p', { className: 'hint', text: 'Partager envoie directement tâches, projets, énergie, durées et agenda à l’appareil associé. Récupérer fusionne les données par identifiant ; les versions locales plus récentes sont conservées. Les connexions Outlook et clés API ne sont pas transférées.' }),
-      node('div', { className: 'row' }, [button('Partager mes données', 'cli-ai.push'), button('Récupérer les données partagées', 'cli-ai.pull'), button('Déconnecter la passerelle', 'cli-ai.disconnect'), button('Fermer la liaison P2P', 'cli-ai.peer-close')])
+      node('div', { className: 'row' }, [button('Déconnecter la passerelle', 'cli-ai.disconnect')])
     ]) : null,
     current.message ? node('p', { role: 'status', text: current.message }) : null,
     current.error ? node('p', { role: 'alert', className: 'error', text: current.error }) : null,
@@ -59,6 +74,7 @@ const mergeItems = (local = [], remote = [], key = item => item.id) => {
   return [...items.values()];
 };
 export const cliAiFeatures = {
+  deviceLink: { description:'Mes appareils · QR code', ui:{order:1,render:({state})=>renderDevices(state)} },
   ai: {
     ...connectionFriendlyOverride.ai,
     run: async context => {
@@ -70,7 +86,7 @@ export const cliAiFeatures = {
   cliAi: {
     description: "Claude / Codex et liaison P2P",
     state: { connected: false, provider: 'codex', answer: '', error: null, message: null, sources: [], optimization: null },
-    when: ['app:start', 'cli-ai:connect', 'cli-ai:disconnect', 'cli-ai:ask', 'cli-ai:optimize', 'cli-ai:push', 'cli-ai:pull', 'cli-ai:peer-host', 'cli-ai:peer-join', 'cli-ai:peer-status', 'cli-ai:peer-data', 'cli-ai:peer-close', 'cli-ai:finished','cli-ai:connection-error'],
+    when: ['app:start', 'cli-ai:connect', 'cli-ai:disconnect', 'cli-ai:ask', 'cli-ai:optimize', 'cli-ai:push', 'cli-ai:pull', 'cli-ai:peer-host', 'cli-ai:peer-join', 'cli-ai:peer-status', 'cli-ai:peer-data', 'cli-ai:peer-close', 'cli-ai:finished','cli-ai:connection-error','cli-ai:scan-read','cli-ai:scan-error'],
     run: async ({ state, event, payload, services, dispatch }) => {
       const current = state.features.cliAi ?? {}, service = services.cliAi;
       const update = change => ({ ...state, features: { ...state.features, cliAi: { ...current, ...change } } });
@@ -88,15 +104,17 @@ export const cliAiFeatures = {
         cliAiFeatures.cliAi.run({ state,event,payload,services }).then(result => dispatch('cli-ai:finished', { result:result.features.cliAi, forAssistant:payload.forAssistant, energy:state.features.energy?.value })).catch(error => dispatch('cli-ai:finished', { result:{ error:error.message }, energy:state.features.energy?.value }));
         return update({ busy:true,error:null,message:'Demande IA en cours… Tu peux continuer à utiliser l’app.' });
       }
+      if(event === 'cli-ai:scan-error')return update({peerError:payload.message});
+      if(event === 'cli-ai:scan-read')return update({peerStatus:'QR reconnu · connexion à l’autre appareil…',peerError:null});
       if(event === 'cli-ai:connection-error') return update({error:payload.message});
       if (event === 'app:start') return update({ connected: service?.isConnected() ?? false, busy:false, peerReady:false, remote: false, qr: null, pairUrl: null, peerStatus: null });
-      if (event === 'cli-ai:peer-status') return update({ peerStatus: payload.status, peerReady: payload.ready, remote: payload.ready && payload.role === 'phone', connected: payload.ready && payload.role === 'phone' || service?.isConnected(), ...(payload.ready ? { qr: null, pairUrl: null } : {}) });
-      if (event === 'cli-ai:disconnect') { service.disconnect(); return update({ connected: false, message: null, error: null }); }
+      if (event === 'cli-ai:peer-status') return update({ peerStatus: payload.status, peerReady: payload.ready, remote: Boolean(payload.ready && payload.role === 'phone' && payload.aiAvailable), connected: Boolean(payload.ready && payload.role === 'phone' && payload.aiAvailable || service?.isConnected()), ...(payload.ready ? { qr: null, pairUrl: null } : {}) });
+      if (event === 'cli-ai:disconnect') { service.disconnect(); services.peerLink.refreshCapabilities?.(); return update({ connected: false, message: null, error: null }); }
       try {
-        if (event === 'cli-ai:peer-host') { const invite = await services.peerLink.host(location.origin + location.pathname); return update({ qr: invite.qr, pairUrl: invite.url, peerStatus: 'QR prêt. Scanne-le sur ton natel.', error: null }); }
+        if (event === 'cli-ai:peer-host') { const invite = await services.peerLink.host(location.origin + location.pathname); return update({ qr: invite.qr, pairUrl: invite.url, peerStatus: services.peerLink.status(), peerError:null, error: null }); }
         if (event === 'cli-ai:peer-join') { await services.peerLink.join(payload); return update({ error: null }); }
         if (event === 'cli-ai:peer-close') { services.peerLink.disconnect(); return update({ qr: null, pairUrl: null }); }
-        if (event === 'cli-ai:connect') { await service.connect(payload.token, payload.url, payload.transport); return update({ connected: true, endpoint: service.endpoint(), error: null, message: 'Association réussie.' }); }
+        if (event === 'cli-ai:connect') { await service.connect(payload.token, payload.url, payload.transport); services.peerLink.refreshCapabilities?.(); return update({ connected: true, endpoint: service.endpoint(), error: null, message: 'Association réussie.' }); }
         if (event === 'cli-ai:push') {
           services.peerLink.push();
           return update({ error: null, message: 'Données envoyées directement à l’autre appareil.' });
@@ -138,10 +156,15 @@ export const cliAiFeatures = {
           change.message = 'Préférences IA appliquées. Agenda recalculé avec contrôle des échéances et rendez-vous. Rien n’a été ajouté à Outlook.';
         }
         return update(change);
-      } catch (error) { return update({ error: error.message, message: null }); }
+      } catch (error) { return update({ error: error.message, ...(['cli-ai:peer-host','cli-ai:peer-join'].includes(event)?{peerError:error.message}:{}), message: null }); }
     },
     ui: { order: 2.5, render, actions: {
-      'cli-ai.peer-host': ({ event, dispatch }) => event.type === 'click' && dispatch('cli-ai:peer-host'),
+      'cli-ai.scan': async ({event,dispatch})=>{
+        if(event.type!=='click')return;
+        try{const invite=await scanPairingQr();if(!invite)return;await dispatch('cli-ai:scan-read');return dispatch('cli-ai:peer-join',invite);}
+        catch(error){return dispatch('cli-ai:scan-error',{message:error.message});}
+      },
+      'cli-ai.peer-host': ({ event,target,dispatch }) => {if(event.type!=='click')return;target.disabled=true;target.textContent='Création du QR…';return dispatch('cli-ai:peer-host');},
       'cli-ai.peer-close': ({ event, dispatch }) => event.type === 'click' && dispatch('cli-ai:peer-close'),
       'cli-ai.connect': ({ event, target, dispatch }) => {
         if (event.type !== 'submit') return;

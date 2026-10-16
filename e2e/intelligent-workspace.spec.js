@@ -106,7 +106,7 @@ test('user session durations persist and bound both weekly proposals and focus s
   await page.reload();await expect(page.getByRole('spinbutton', { name:'Durée maximale de travail (minutes)' })).toHaveValue('20');
 });
 
-test('QR association with mocked P2P transport preserves phone data offline after PC closes', async ({ browser, page }) => {
+for(const withAi of [false,true]) test(`QR association ${withAi?'with AI':'without any CLI'} preserves phone data offline after PC closes (mocked P2P)`, async ({ browser,page }) => {
   const sockets=new Map(), transport=[];
   const vendor=await readFile('js/vendor/peer-qr.js','utf8');
   const mockModule=`
@@ -145,10 +145,12 @@ export class Peer extends Emitter {
     return route.fulfill({json:route.request().url().endsWith('/health')?{app:'meliapp-cli'}:{text:'Conseil transmis par le PC en P2P.'},headers});
   });
   await seed(page);await page.goto('/#/settings');
-  await page.getByLabel('Code d’association du terminal',{exact:true}).fill('pc-token');
-  await page.getByRole('button',{name:'Associer la passerelle',exact:true}).click();
-  await expect(page.getByText('Passerelle associée pour cette session.')).toBeVisible();
-  await page.getByRole('button',{name:'Relier mon natel en P2P · QR code',exact:true}).click();
+  if(withAi){
+    await page.getByLabel('Code d’association du terminal',{exact:true}).fill('pc-token');
+    await page.getByRole('button',{name:'Associer la passerelle',exact:true}).click();
+    await expect(page.getByText('Passerelle associée pour cette session.')).toBeVisible();
+  } else await page.goto('/#/devices');
+  await page.getByRole('button',{name:'Afficher le QR code',exact:true}).click();
   const link=page.getByRole('link',{name:'Lien d’association (valable 10 minutes)'});
   await expect(link).toBeVisible();
   await expect(page.getByRole('img',{name:'QR code d’association P2P au téléphone'})).toBeVisible();
@@ -158,10 +160,16 @@ export class Peer extends Emitter {
   const phone=await phoneContext.newPage();
   try {
     await phone.goto(url);
-    await expect(phone.getByText('IA reliée au PC par P2P.')).toBeVisible({timeout:10000});
     await expect.poll(async()=>(await stored(phone))?.features.tasks.items.length).toBe(35);
-    await phone.getByRole('button',{name:'Demander avec mon contexte',exact:true}).click();
-    await expect(phone.getByText('Conseil transmis par le PC en P2P.',{exact:true})).toBeVisible();
+    if(withAi){
+      await phone.goto('/#/settings');
+      await expect(phone.getByText('IA reliée au PC par P2P.',{exact:true})).toBeVisible();
+      await phone.getByRole('button',{name:'Demander avec mon contexte',exact:true}).click();
+      await expect(phone.getByText('Conseil transmis par le PC en P2P.',{exact:true})).toBeVisible();
+    } else {
+      await expect(phone.getByText('Appareils reliés. Le partage de données fonctionne indépendamment de l’IA.',{exact:true})).toBeVisible();
+      await expect(phone.getByRole('button',{name:'Demander avec mon contexte',exact:true})).toHaveCount(0);
+    }
     expect(transport).toContain('CONNECT');expect(transport).toContain('DATA');
     await phone.evaluate(async()=>{await navigator.serviceWorker.ready;});
     await page.close();

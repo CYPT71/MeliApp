@@ -17,7 +17,7 @@ const services = createServices();
 let pairing = null;
 if (location.hash.startsWith('#pair=')) {
   try { pairing = JSON.parse(decodeURIComponent(location.hash.slice(6))); } catch { pairing = {}; }
-  history.replaceState(null, '', location.pathname + location.search + '#/settings');
+  history.replaceState(null, '', location.pathname + location.search + '#/devices');
 }
 const saveStatus = document.querySelector("#storage-status");
 const showStorageError = () => {
@@ -84,6 +84,7 @@ services.peerLink.configure({
   getData: () => ({ tasks: app.getState().features.tasks?.items ?? [], projects: app.getState().features.projects?.items ?? [], energy: app.getState().features.energy, events: app.getState().calendar?.events ?? [] }),
   onStatus: status => app.dispatch('cli-ai:peer-status', status),
   onData: async data => { await app.dispatch('cli-ai:peer-data', data); await app.dispatch('adaptive-plan:refresh'); },
+  aiAvailable: () => services.cliAi.isConnected(),
   prompt: (provider, prompt) => services.cliAi.prompt(provider, prompt)
 });
 if (pairing) { await app.dispatch('cli-ai:peer-join', pairing); pairing = null; }

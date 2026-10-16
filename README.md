@@ -438,3 +438,41 @@ Les tests reproduisent un accès direct bloqué et vérifient l’association, u
 réponse CLI, la fermeture de la fenêtre et le refus d’une fenêtre non autorisée.
 La détection Safari est simulée ; le moteur WebKit reste indisponible dans cet
 environnement cloud (téléchargement refusé).
+
+### Appareils sans installation : QR et échange de jetons
+
+L’onglet **Appareils** est indépendant des réglages IA. **Afficher le QR code**
+génère localement un lien d’association et son jeton aléatoire, valables dix
+minutes, avant d’attendre le service de signalisation. Un blocage de ce service
+n’empêche plus l’image de s’afficher ; le statut explique alors que la connexion
+P2P reste indisponible. Scanner le QR ouvre directement l’écran Appareils de la
+même app GitHub Pages, sans commande Shell ni code à recopier. Les navigateurs
+s’échangent le jeton d’association dans le canal WebRTC pour authentifier le
+receveur, puis transfèrent les données. Le jeton ne doit pas être partagé avec
+une personne non autorisée.
+
+Safari et un site GitHub Pages ne disposent pas d’API pour émettre ou écouter
+un broadcast UDP/mDNS sur le réseau local. `BroadcastChannel` ne découvre pas
+les autres machines : il relie des contextes d’une même origine sur un même
+appareil. La découverte automatique par vrai broadcast réseau demanderait un
+composant natif/local ; elle n’est donc pas implémentée dans ce parcours sans
+installation. Le QR réalise la découverte consentie et la signalisation établit
+ensuite le P2P, sans serveur de sauvegarde et sans relais TURN.
+
+Le partage des tâches ne suppose aucune IA. Le receveur n’affiche une IA
+connectée que si l’ordinateur annonce effectivement une passerelle active ;
+l’activation/désactivation ultérieure est annoncée au téléphone. Sans passerelle,
+les données, l’énergie et le calcul local du planning restent utilisables.
+Claude/Codex via CLI nécessite toujours un programme installé et lancé sur le
+Mac : GitHub Pages ne peut pas exécuter ce CLI ni réutiliser automatiquement
+un abonnement ChatGPT/Claude ouvert dans un autre onglet.
+
+Sur le natel, **Appareils → Scanner un QR code** ouvre la caméra arrière avec
+l’autorisation Safari. Le décodage est réalisé sur l’appareil par la bibliothèque
+embarquée jsQR ; aucune image n’est envoyée à un service. Le scanner accepte
+uniquement un jeton MeliApp valide et non expiré pour la même origine et le même
+chemin d’application. Un QR tiers n’ouvre pas de site automatiquement. À la
+lecture, à la fermeture ou au passage en arrière-plan, les pistes caméra sont
+arrêtées. Un refus d’autorisation affiche une explication et permet de réessayer.
+Les tests utilisent un flux caméra simulé contenant un vrai QR, décodé par jsQR,
+et couvrent également le refus d’accès et l’arrivée tardive d’un flux après fermeture.
